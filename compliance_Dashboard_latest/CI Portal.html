@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-accent="indigo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compliance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ci-styles.css">
+<style>
+/* ── LIFECYCLE BADGES ───────────────────── */
+.badge-draft       { background:var(--accent-dim);           color:var(--accent-fg); }
+.badge-submitted   { background:rgba(80,130,220,.15);        color:#82b0e8; }
+.badge-review      { background:var(--amber-dim);            color:var(--amber); }
+.badge-development { background:rgba(60,140,200,.14);        color:#6baed8; }
+.badge-test        { background:rgba(150,90,210,.14);        color:#b88ee0; }
+.badge-ready       { background:var(--green-dim);            color:var(--green); }
+.badge-rejected    { background:var(--red-dim);              color:var(--red); }
+.badge-paused      { background:rgba(193,154,75,.2);         color:var(--amber); }
+.badge-deprecated  { background:var(--card-2);               color:var(--dim); }
+
+/* ── PROJECT STATUS BADGES ──────────────── */
+.badge-compliant    { background:var(--green-dim);  color:var(--green); }
+.badge-noncompliant { background:var(--red-dim);    color:var(--red); }
+.badge-inprogress   { background:var(--amber-dim);  color:var(--amber); }
+.badge-na           { background:var(--card-2);     color:var(--dim); }
+
+/* ── ROLE TOGGLE ────────────────────────── */
+.role-toggle { display:flex;align-items:center;padding:3px;background:var(--card);border:1px solid var(--border);border-radius:100px;gap:2px; }
+.role-btn { padding:3px 11px;border-radius:100px;font-size:11px;font-weight:600;border:none;background:none;color:var(--muted);cursor:pointer;transition:all .15s;font-family:inherit;white-space:nowrap; }
+.role-btn.active { background:var(--accent);color:#fff; }
+
+/* ── HOME TABS ──────────────────────────── */
+.home-tabs { display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px; }
+.home-tab { padding:8px 18px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:none;font-family:inherit;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px; }
+.home-tab.active { color:var(--text);border-bottom-color:var(--accent); }
+
+/* ── ACTIVE INITIATIVE CARD ─────────────── */
+.init-card { background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:22px 24px;cursor:pointer;transition:border-color .2s,transform .15s; }
+.init-card:hover { border-color:var(--accent);transform:translateY(-1px); }
+.compliance-bar-track { height:7px;border-radius:100px;background:var(--card-2);overflow:hidden;display:flex;margin:10px 0 6px; }
+.compliance-bar-seg { height:100%;transition:width .5s; }
+
+/* ── DETAIL STATS BAR ───────────────────── */
+.stats-bar { display:flex;align-items:center;gap:0;padding:0;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:20px;overflow:hidden; }
+.stats-bar-item { flex:1;padding:14px 18px;text-align:center;border-right:1px solid var(--border-s); }
+.stats-bar-item:last-child { border-right:none; }
+.stats-bar-val { font-size:26px;font-weight:700;letter-spacing:-0.04em;line-height:1;margin-bottom:3px; }
+.stats-bar-lbl { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--dim); }
+
+/* ── PROJECT TABLE EXTRAS ───────────────── */
+.proj-filter-bar { display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap; }
+.proj-pill { padding:3px 10px;font-size:11px;font-weight:600;border-radius:100px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-family:inherit;transition:all .15s; }
+.proj-pill.active { background:var(--accent-dim);color:var(--accent-fg);border-color:transparent; }
+.proj-search { height:30px;padding:0 10px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-size:12px;font-family:inherit;outline:none;width:180px; }
+.proj-search:focus { border-color:var(--accent); }
+.override-row { display:none;background:var(--card-2); }
+.override-row.open { display:table-row; }
+.override-form { padding:14px 16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap; }
+.override-form .fg { min-width:160px; }
+.manual-badge { font-size:9px;padding:2px 5px;border-radius:3px;background:rgba(193,154,75,.2);color:var(--amber);font-weight:700;letter-spacing:0.04em;vertical-align:middle;margin-left:4px; }
+
+/* ── ANALYTICS GRID ─────────────────────── */
+.analytics-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px; }
+.analytics-card { background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px; }
+.analytics-val { font-size:34px;font-weight:700;letter-spacing:-0.04em;line-height:1;margin-bottom:4px; }
+.analytics-lbl { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:8px; }
+.analytics-sub { font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px; }
+
+/* ── LIFECYCLE STEPPER ──────────────────── */
+.lc-stepper { display:flex;align-items:flex-start;overflow-x:auto;gap:0;padding:4px 0 10px; }
+.lc-step { display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0; }
+.lc-dot { width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid var(--border);background:var(--card-2);color:var(--dim);transition:all .3s;flex-shrink:0; }
+.lc-dot.done { background:var(--green-dim);border-color:var(--green);color:var(--green); }
+.lc-dot.current { border-color:var(--accent);background:var(--accent-dim);color:var(--accent-fg);box-shadow:0 0 0 4px var(--accent-dim); }
+.lc-dot.rejected-cur { border-color:var(--red);background:var(--red-dim);color:var(--red);box-shadow:0 0 0 4px var(--red-dim); }
+.lc-dot.paused-cur { border-color:var(--amber);background:var(--amber-dim);color:var(--amber);box-shadow:0 0 0 4px var(--amber-dim); }
+.lc-dot.deprecated-cur { border-color:var(--dim);background:var(--card-2);color:var(--dim); }
+.lc-label { font-size:10px;font-weight:600;color:var(--dim);white-space:nowrap; }
+.lc-label.done { color:var(--green); }
+.lc-label.current { color:var(--accent-fg); }
+.lc-label.rejected-cur { color:var(--red); }
+.lc-label.paused-cur { color:var(--amber); }
+.lc-conn { width:28px;height:2px;background:var(--border-s);flex-shrink:0;margin-top:-15px; }
+.lc-conn.done { background:var(--green); }
+
+/* ── CI ACTION PANEL ────────────────────── */
+.ci-action-panel { background:rgba(150,90,210,.08);border:1px solid rgba(150,90,210,.25);border-radius:var(--r-lg);padding:18px 20px;margin-bottom:20px; }
+.ci-panel-head { display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;font-weight:700;color:#b88ee0; }
+
+/* ── SUBMIT / STATE BANNERS ─────────────── */
+.submit-banner { background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px; }
+.locked-banner { display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--amber-dim);color:var(--amber);border:1px solid rgba(193,154,75,.3);border-radius:var(--r-sm);font-size:12px;margin-bottom:16px; }
+.paused-banner { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;background:rgba(193,154,75,.1);border:1px solid rgba(193,154,75,.35);border-radius:var(--r-lg);margin-bottom:20px; }
+.deprecated-banner { display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--card-2);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:20px;font-size:13px;color:var(--muted); }
+
+/* ── ACTIVITY LOG ───────────────────────── */
+.act-timeline { display:flex;flex-direction:column;gap:0; }
+.act-item { display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-s); }
+.act-item:last-child { border-bottom:none; }
+.act-dot-col { display:flex;flex-direction:column;align-items:center;flex-shrink:0;padding-top:4px; }
+.act-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+.act-vline { width:2px;flex:1;background:var(--border-s);margin-top:4px; }
+.act-content { flex:1;min-width:0; }
+.act-meta { display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap; }
+.act-time { font-size:11px;color:var(--dim);font-family:var(--mono); }
+.act-user { font-size:12px;font-weight:600;color:var(--muted); }
+.act-body { font-size:12px;color:var(--muted);line-height:1.55; }
+
+/* ── DOCS SLIDER ────────────────────────── */
+.slider-shell { background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden; }
+.slides-viewport { overflow:hidden; }
+.slides-track { display:flex;transition:transform .35s cubic-bezier(.4,0,.2,1); }
+.slide { min-width:100%;flex:0 0 100%;padding:36px 40px;box-sizing:border-box;min-height:580px; }
+.slide-footer { display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-top:1px solid var(--border-s); }
+.slide-dots { display:flex;gap:7px;align-items:center; }
+.slide-dot { width:8px;height:8px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .2s; }
+.slide-dot.active { background:var(--accent);width:20px;border-radius:100px; }
+.slide-nav-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:none;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s; }
+.slide-nav-btn:hover:not(:disabled) { background:var(--card-2);color:var(--text); }
+.slide-nav-btn:disabled { opacity:.35;cursor:not-allowed; }
+.slide-num { font-size:11px;color:var(--dim);font-family:var(--mono); }
+
+/* ── EDIT FIELD LOCKING ─────────────────── */
+.field-locked .input,.field-locked .select,.field-locked .textarea { opacity:.45;pointer-events:none;background:var(--card-2) !important; }
+.lock-tag { font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(193,154,75,.2);color:var(--amber);font-weight:700;letter-spacing:0.04em;margin-left:6px;vertical-align:middle; }
+
+/* ── SCOPE PILLS ────────────────────────── */
+.scope-pill { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:100px;border:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:500;transition:all .15s; }
+.scope-pill:has(input:checked) { background:var(--accent-dim);border-color:transparent;color:var(--accent-fg); }
+.scope-pill input { accent-color:var(--accent);margin:0; }
+.scope-pill .pct { font-size:10px;font-weight:700;font-family:var(--mono);color:var(--dim); }
+.scope-sub { padding:12px 0 4px 24px; }
+
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body data-theme="dark" data-accent="indigo">
+
+<!-- ═══ NAV ═══ -->
+<nav class="nav">
+  <div class="nav-brand">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.5 3.5L21.5 14.5L17.5 18.5L6.5 7.5Z"/>
+      <path d="M3 21L8 16"/><path d="M13.5 21.5H21.5"/>
+    </svg>
+    Compliance Dashboard
+    <span class="env-badge">DB: Local</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-link" id="nl-dashboard" onclick="nav('dashboard')">Home</button>
+    <button class="nav-link" id="nl-all-initiatives" onclick="nav('all-initiatives')">All Initiatives</button>
+    <button class="nav-link" id="nl-ci-review" onclick="nav('ci-review')">CI Review</button>
+    <button class="nav-link" id="nl-docs" onclick="nav('docs')">Docs</button>
+  </div>
+  <div class="nav-right">
+    <input class="search-bar" placeholder="Search initiatives…">
+    <div class="role-toggle">
+      <button class="role-btn active" id="role-user-btn" onclick="setRole('user')">User</button>
+      <button class="role-btn" id="role-ci-btn" onclick="setRole('ci')">CI Team</button>
+    </div>
+    <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀</button>
+    <div class="avatar">AG</div>
+  </div>
+</nav>
+
+<!-- ═══ HOME ═══ -->
+<div id="page-dashboard" class="page">
+<div class="container">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="width:46px;height:46px;background:var(--accent-dim);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.5 3.5L21.5 14.5L17.5 18.5L6.5 7.5Z"/>
+          <path d="M3 21L8 16"/><path d="M13.5 21.5H21.5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Compliance Dashboard</h1>
+        <div class="sub" id="home-greeting">Active compliance requirements for your projects</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="nav('docs')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Lifecycle Docs
+      </button>
+      <button class="btn btn-primary" onclick="nav('create')">+ New Initiative</button>
+    </div>
+  </div>
+
+  <!-- Quick stats -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;" id="home-stats-grid"></div>
+
+  <!-- Tabs -->
+  <div class="home-tabs">
+    <button class="home-tab active" id="htab-active" onclick="homeTab('active',this)">Active Requirements</button>
+    <button class="home-tab" id="htab-mine" onclick="homeTab('mine',this)">My Initiatives</button>
+  </div>
+
+  <div id="home-active-panel"></div>
+  <div id="home-mine-panel" style="display:none;"></div>
+</div>
+</div>
+
+<!-- ═══ ALL INITIATIVES ═══ -->
+<div id="page-all-initiatives" class="page">
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>All Initiatives</h1>
+      <div class="sub">Analytics overview and full portfolio of compliance initiatives</div>
+    </div>
+    <button class="btn btn-primary" onclick="nav('create')">+ New Initiative</button>
+  </div>
+
+  <!-- Analytics cards -->
+  <div class="analytics-grid" id="analytics-grid"></div>
+
+  <!-- Compliance health bar -->
+  <div class="card" style="margin-bottom:20px;padding:16px 20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;">Portfolio Compliance Health</div>
+      <div style="font-size:12px;color:var(--dim);">Across active initiatives · <span id="total-projects-count">0</span> projects</div>
+    </div>
+    <div class="compliance-bar-track" style="height:10px;">
+      <div id="health-bar-compliant" class="compliance-bar-seg" style="background:var(--green);width:0%;"></div>
+      <div id="health-bar-inprogress" class="compliance-bar-seg" style="background:var(--amber);width:0%;"></div>
+      <div id="health-bar-noncompliant" class="compliance-bar-seg" style="background:var(--red);width:0%;"></div>
+      <div id="health-bar-na" class="compliance-bar-seg" style="background:var(--dim);width:0%;"></div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;" id="health-bar-legend"></div>
+  </div>
+
+  <!-- Status filter pills -->
+  <div class="pills" id="ai-pills">
+    <button class="pill active" onclick="filterAI('all',this)">All <span class="pcount" id="ai-pill-all">4</span></button>
+    <button class="pill" onclick="filterAI('draft',this)">Draft <span class="pcount">1</span></button>
+    <button class="pill" onclick="filterAI('submitted',this)">Submitted <span class="pcount">1</span></button>
+    <button class="pill" onclick="filterAI('review',this)">Review <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterAI('development',this)">Development <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterAI('test',this)">Test <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterAI('ready',this)">Ready <span class="pcount">2</span></button>
+    <button class="pill" onclick="filterAI('paused',this)">Paused <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterAI('deprecated',this)">Deprecated <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterAI('rejected',this)">Rejected <span class="pcount">0</span></button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Initiative</th><th>Lifecycle</th><th>Projects</th><th>Compliance</th><th>Key Dates</th><th>Status</th><th>Owner</th><th></th></tr></thead>
+      <tbody id="ai-table-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══ DETAIL ═══ -->
+<div id="page-detail" class="page">
+<div class="container" id="detail-container"></div>
+</div>
+
+<!-- ═══ CREATE ═══ -->
+<div id="page-create" class="page">
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>New Compliance Initiative</h1>
+      <div class="sub">Saved as a Draft — submit when ready for CI review</div>
+    </div>
+    <button class="btn btn-secondary" onclick="nav('dashboard')">← Back</button>
+  </div>
+
+  <div class="lifecycle-banner" style="margin-bottom:20px;">
+    <div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Initiative Lifecycle</div>
+      <div style="display:flex;align-items:center;gap:0;">
+        <span class="step-lg current">Draft</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Submitted</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Review</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Development</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Test</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Ready</span>
+      </div>
+    </div>
+    <span class="badge badge-draft">Starts as: Draft</span>
+  </div>
+
+  <div class="form-layout">
+    <div>
+      <div class="fsec">
+        <div class="fsec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Basic Information<span style="font-size:10px;color:var(--dim);font-weight:400;margin-left:auto;">Frozen once CI begins testing</span></div>
+        <div class="fsec-body">
+          <div class="fg2" style="margin-bottom:14px;">
+            <div class="fg"><label>Short Title <span class="req">*</span></label><input class="input" placeholder="e.g., SAST, Xcode 26.3"><div class="fhint">Max 20 chars</div></div>
+            <div class="fg"><label>Category <span class="req">*</span></label><select class="select"><option value="">Select…</option><option>Compliance</option><option>Security</option><option>Quality</option></select></div>
+          </div>
+          <div class="fg" style="margin-bottom:14px;"><label>Full Title <span class="req">*</span></label><input class="input" placeholder="e.g., Static Application Security Testing"></div>
+          <div class="fg" style="margin-bottom:14px;"><label>Description</label><textarea class="textarea" placeholder="Brief description of this compliance requirement"></textarea></div>
+          <div class="fg" style="margin-bottom:14px;"><label>Technical Requirements</label><textarea class="textarea" style="font-family:'IBM Plex Mono',monospace;font-size:12px;" placeholder="e.g., Update dlci/settings/config.json with XCODE_VERSION='26.3.0'"></textarea></div>
+          <div class="fg2">
+            <div class="fg"><label>Documentation URL</label><input class="input" placeholder="https://…"></div>
+            <div class="fg"><label>Jira URL</label><input class="input" placeholder="https://jira.company.com/…"></div>
+          </div>
+        </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Tentative CI Enforcement Timeline<span style="font-size:10px;color:var(--dim);font-weight:400;margin-left:auto;">Editable until Test phase</span></div>
+        <div class="fsec-body">
+          <div class="notice notice-info" style="margin-bottom:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Dates are tentative — CI may adjust during development.</div>
+          <div class="fg2">
+            <div class="fg"><label>Warn Date <span class="req">*</span></label><input class="input" type="date"><div class="fhint">CI starts issuing warnings</div></div>
+            <div class="fg"><label>Block Date <span class="req">*</span></label><input class="input" type="date"><div class="fhint">CI starts blocking PRs</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="fsec">
+        <div class="fsec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Tentative Project Scope</div>
+        <div class="fsec-body">
+          <label class="check-row"><input type="checkbox" id="scope-all" checked onchange="scopeChanged()"><div style="flex:1;"><div class="check-main">All Projects</div><div class="check-sub">Entire portfolio</div></div><span style="font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--muted);">284</span></label>
+          <label class="check-row"><input type="checkbox" id="scope-lob" onchange="toggleSub('lob-sub',this.checked)"><div><div class="check-main">By Line of Business</div><div class="check-sub">CCB, CIB, ICB, AWM…</div></div></label>
+          <div id="lob-sub" style="display:none;" class="scope-sub"><div style="display:flex;flex-wrap:wrap;gap:7px;">
+            <label class="scope-pill"><input type="checkbox" data-count="52"><span>CCB</span><span class="pct">52</span></label>
+            <label class="scope-pill"><input type="checkbox" data-count="43"><span>CIB</span><span class="pct">43</span></label>
+            <label class="scope-pill"><input type="checkbox" data-count="38"><span>ICB</span><span class="pct">38</span></label>
+            <label class="scope-pill"><input type="checkbox" data-count="29"><span>AWM</span><span class="pct">29</span></label>
+            <label class="scope-pill"><input type="checkbox" data-count="67"><span>Other</span><span class="pct">67</span></label>
+          </div></div>
+          <label class="check-row"><input type="checkbox" id="scope-plat" onchange="toggleSub('plat-sub',this.checked)"><div><div class="check-main">By Platform</div><div class="check-sub">iOS, Android, Web…</div></div></label>
+          <div id="plat-sub" style="display:none;" class="scope-sub"><div style="display:flex;flex-wrap:wrap;gap:7px;">
+            <label class="scope-pill"><input type="checkbox" data-count="97"><span>iOS</span><span class="pct">97</span></label>
+            <label class="scope-pill"><input type="checkbox" data-count="85"><span>Android</span><span class="pct">85</span></label>
+            <label class="scope-pill"><input type="checkbox" data-count="62"><span>Web</span><span class="pct">62</span></label>
+          </div></div>
+          <label class="check-row" style="border-bottom:none;"><input type="checkbox" id="scope-repo" onchange="toggleSub('repo-sub',this.checked)"><div><div class="check-main">By Bitbucket Repo</div></div></label>
+          <div id="repo-sub" style="display:none;" class="scope-sub"><div class="fg"><label>Repo paths</label><input class="input mono" placeholder="e.g., MOBILE/ios-app"></div></div>
+          <hr class="divider">
+          <div class="fg"><label>Branch Filter (Optional)</label><input class="input mono" placeholder="e.g., ^(main|master|release/.*)$"><div class="fhint">Regex supported</div></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn btn-primary" style="height:38px;padding:0 24px;font-size:14px;" onclick="nav('dashboard')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          Save as Draft
+        </button>
+        <button class="btn btn-secondary" onclick="nav('dashboard')">Cancel</button>
+      </div>
+    </div>
+    <div class="sidebar-sticky">
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;">What happens after saving?</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="font-size:12px;display:flex;gap:8px;"><span class="badge badge-draft" style="flex-shrink:0;">Draft</span><span style="color:var(--muted);">Saved privately — only you can see it.</span></div>
+          <div style="font-size:12px;display:flex;gap:8px;"><span class="badge badge-submitted" style="flex-shrink:0;">Submitted</span><span style="color:var(--muted);">Submit when ready for CI review.</span></div>
+          <div style="font-size:11px;color:var(--dim);margin-top:4px;">CI team will schedule a feasibility review and move it through the lifecycle.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ EDIT ═══ -->
+<div id="page-edit" class="page">
+<div class="container" id="edit-container"></div>
+</div>
+
+<!-- ═══ CI REVIEW ═══ -->
+<div id="page-ci-review" class="page">
+<div class="container">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:36px;height:36px;background:rgba(150,90,210,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b88ee0" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      </div>
+      <div><h1>CI Review Dashboard</h1><div class="sub">Manage submitted initiatives — CI team only</div></div>
+    </div>
+  </div>
+  <div id="ci-role-notice" style="display:flex;" class="notice notice-info" style="margin-bottom:20px;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M12 12v4"/></svg>
+    Switch to <strong style="margin:0 3px;">CI Team</strong> role in the nav to enable status update actions.
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px;">
+    <div class="card"><div class="stat-label">Submitted</div><div style="font-size:26px;font-weight:700;color:#82b0e8;">1</div></div>
+    <div class="card"><div class="stat-label">In Review</div><div style="font-size:26px;font-weight:700;color:var(--amber);">0</div></div>
+    <div class="card"><div class="stat-label">Development</div><div style="font-size:26px;font-weight:700;color:#6baed8;">0</div></div>
+    <div class="card"><div class="stat-label">In Test</div><div style="font-size:26px;font-weight:700;color:#b88ee0;">0</div></div>
+    <div class="card"><div class="stat-label">Ready</div><div style="font-size:26px;font-weight:700;color:var(--green);">2</div></div>
+  </div>
+  <div class="sec-head" style="margin-bottom:14px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Action Queue</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Initiative</th><th>Author</th><th>Submitted</th><th>Status</th><th style="min-width:220px;">CI Actions</th></tr></thead>
+      <tbody id="ci-review-tbody"></tbody>
+    </table>
+  </div>
+  <div class="sec-head" style="margin-bottom:14px;margin-top:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Recent CI Activity</div>
+  <div class="card">
+    <div class="act-timeline">
+      <div class="act-item">
+        <div class="act-dot-col"><div class="act-dot" style="background:var(--green);"></div></div>
+        <div class="act-content"><div class="act-meta"><span class="act-time">Jun 8, 2026 9:00 AM</span><span class="badge badge-ready" style="font-size:10px;">Ready</span><span class="act-user">Kim, James (CI)</span></div><div class="act-body">Dependency Version Lock — Backend checks deployed to production.</div></div>
+      </div>
+      <div class="act-item">
+        <div class="act-dot-col"><div class="act-dot" style="background:#b88ee0;"></div><div class="act-vline"></div></div>
+        <div class="act-content"><div class="act-meta"><span class="act-time">Jun 5, 2026 2:00 PM</span><span class="badge badge-test" style="font-size:10px;">Test</span><span class="act-user">Kim, James (CI)</span></div><div class="act-body">Dependency Version Lock — CI check deployed to staging.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ DOCS SLIDER ═══ -->
+<div id="page-docs" class="page">
+<div class="container">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="width:46px;height:46px;background:var(--accent-dim);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.5 3.5L21.5 14.5L17.5 18.5L6.5 7.5Z"/>
+          <path d="M3 21L8 16"/><path d="M13.5 21.5H21.5"/>
+        </svg>
+      </div>
+      <div><h1>Initiative Lifecycle Documentation</h1><div class="sub">How compliance initiatives move from idea to active enforcement</div></div>
+    </div>
+  </div>
+
+  <div class="slider-shell">
+    <div class="slides-viewport">
+      <div class="slides-track" id="slides-track">
+
+        <!-- SLIDE 1: Overview -->
+        <div class="slide">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;height:100%;">
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent-fg);margin-bottom:12px;">Introduction</div>
+              <h2 style="font-size:28px;font-weight:700;letter-spacing:-0.03em;line-height:1.2;margin-bottom:18px;">What is a CI Compliance Initiative?</h2>
+              <p style="font-size:14px;color:var(--muted);line-height:1.75;margin-bottom:20px;">A compliance initiative is a formal requirement that teams must meet in order to merge code. Once active, the CI system automatically checks each PR and can warn or block based on compliance status.</p>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;gap:12px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:8px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div style="font-size:13px;font-weight:600;margin-bottom:3px;">Automated Enforcement</div><div style="font-size:12px;color:var(--muted);">CI checks run on every PR, warning or blocking based on compliance state.</div></div></div>
+                <div style="display:flex;gap:12px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:8px;background:var(--green-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div><div><div style="font-size:13px;font-weight:600;margin-bottom:3px;">Manual Override</div><div style="font-size:12px;color:var(--muted);">When automation isn't possible, project teams can provide evidence and manually mark projects compliant.</div></div></div>
+                <div style="display:flex;gap:12px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:8px;background:var(--amber-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div><div style="font-size:13px;font-weight:600;margin-bottom:3px;">Gradual Rollout</div><div style="font-size:12px;color:var(--muted);">Warn phase first, then blocking — giving teams time to remediate.</div></div></div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Key Roles</div>
+              <div class="card" style="padding:16px 18px;"><div style="font-size:12px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:7px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;">AG</div>Initiative Author</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Creates the initiative, sets the enforcement timeline and scope, submits for CI review, and manages enforcement once active.</div></div>
+              <div class="card" style="padding:16px 18px;border-color:rgba(150,90,210,.3);"><div style="font-size:12px;font-weight:700;margin-bottom:6px;color:#b88ee0;display:flex;align-items:center;gap:7px;"><div style="width:24px;height:24px;border-radius:50%;background:rgba(150,90,210,.2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#b88ee0;">CI</div>CI Team</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Reviews feasibility, builds the backend enforcement check, tests it, and deploys it to production. Controls all status transitions.</div></div>
+              <div class="card" style="padding:16px 18px;"><div style="font-size:12px;font-weight:700;margin-bottom:6px;">Project Teams</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Receive warnings/blocks on PRs. Make the technical changes needed to become compliant or provide override evidence.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SLIDE 2: Lifecycle Flow -->
+        <div class="slide">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent-fg);margin-bottom:12px;">Lifecycle</div>
+          <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin-bottom:24px;">The Initiative Lifecycle</h2>
+          <div style="overflow-x:auto;margin-bottom:24px;">
+            <div style="min-width:820px;">
+              <div style="display:flex;align-items:flex-start;gap:0;margin-bottom:0;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;"><div style="width:120px;border-radius:var(--r-lg);border:1.5px solid var(--accent);overflow:hidden;"><div style="padding:9px 12px;background:var(--accent-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent-fg);">1 · Draft</div><div style="padding:9px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">User creates. Full edit. Not visible to CI.</div></div><div style="font-size:10px;color:var(--dim);">👤 Author</div></div>
+                <div style="font-size:18px;color:var(--dim);padding:0 4px;margin-top:28px;">→</div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;"><div style="width:120px;border-radius:var(--r-lg);border:1.5px solid #82b0e8;overflow:hidden;"><div style="padding:9px 12px;background:rgba(80,130,220,.12);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#82b0e8;">2 · Submitted</div><div style="padding:9px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">Author submits. Awaiting CI triage.</div></div><div style="font-size:10px;color:var(--dim);">👤 Author</div></div>
+                <div style="font-size:18px;color:var(--dim);padding:0 4px;margin-top:28px;">→</div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;"><div style="width:116px;border-radius:var(--r-lg);border:1.5px solid var(--amber);overflow:hidden;"><div style="padding:9px 12px;background:var(--amber-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--amber);">3 · Review</div><div style="padding:9px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">CI evaluates feasibility. Meeting scheduled.</div></div><div style="font-size:10px;color:var(--dim);">🔧 CI Team</div></div>
+                <div style="font-size:18px;color:var(--dim);padding:0 4px;margin-top:28px;">→</div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;"><div style="width:120px;border-radius:var(--r-lg);border:1.5px solid #6baed8;overflow:hidden;"><div style="padding:9px 12px;background:rgba(60,140,200,.12);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6baed8;">4 · Development</div><div style="padding:9px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">CI builds the backend check.</div></div><div style="font-size:10px;color:var(--dim);">🔧 CI Team</div></div>
+                <div style="font-size:18px;color:var(--dim);padding:0 4px;margin-top:28px;">→</div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;"><div style="width:110px;border-radius:var(--r-lg);border:1.5px solid #b88ee0;overflow:hidden;"><div style="padding:9px 12px;background:rgba(150,90,210,.12);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#b88ee0;">5 · Test</div><div style="padding:9px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">CI validates. All edits <strong style="color:var(--amber);">locked</strong>.</div></div><div style="font-size:10px;color:var(--dim);">🔧 CI Team</div></div>
+                <div style="font-size:18px;color:var(--dim);padding:0 4px;margin-top:28px;">→</div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;"><div style="width:124px;border-radius:var(--r-lg);border:1.5px solid var(--green);overflow:hidden;"><div style="padding:9px 12px;background:var(--green-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--green);">6 · Ready for Activation</div><div style="padding:9px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">Backend live. Dates &amp; scope editable.</div></div><div style="font-size:10px;color:var(--dim);">👤 Author</div></div>
+              </div>
+              <div style="display:flex;gap:0;margin-top:6px;padding-left:304px;">
+                <div style="display:flex;flex-direction:column;align-items:center;"><div style="width:2px;height:18px;background:var(--red);"></div><div style="width:116px;border-radius:var(--r-lg);border:1.5px solid var(--red);overflow:hidden;"><div style="padding:9px 12px;background:var(--red-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--red);">✕ Rejected</div><div style="padding:9px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">Not feasible. Terminal state.</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="padding:14px 16px;background:var(--amber-dim);border:1px solid rgba(193,154,75,.3);border-radius:var(--r-lg);">
+              <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:6px;">⏸ Paused</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.55;">Available from Ready state. Temporarily pauses CI enforcement (warn/block) without changing dates. Resume restores enforcement.</div>
+            </div>
+            <div style="padding:14px 16px;background:var(--card-2);border:1px solid var(--border);border-radius:var(--r-lg);">
+              <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:6px;">🗄 Deprecated</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.55;">Retires the initiative permanently. CI check is removed from production. Available from any active state.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SLIDE 3: Edit Permissions -->
+        <div class="slide">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent-fg);margin-bottom:12px;">Permissions</div>
+          <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin-bottom:20px;">What Can You Edit — and When?</h2>
+          <div class="table-wrap" style="margin-bottom:20px;">
+            <table style="font-size:12px;">
+              <thead><tr><th>Action</th><th>Draft</th><th>Submitted</th><th>Review</th><th>Dev</th><th>Test</th><th>Ready</th><th>Paused</th><th>Rejected</th></tr></thead>
+              <tbody>
+                <tr><td style="font-weight:600;">Edit title &amp; description</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--red);">✗</td><td style="color:var(--red);">✗</td><td style="color:var(--red);">✗</td><td style="color:var(--red);">✗</td></tr>
+                <tr><td style="font-weight:600;">Edit technical requirements</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--red);">✗</td><td style="color:var(--red);">✗</td><td style="color:var(--red);">✗</td><td style="color:var(--red);">✗</td></tr>
+                <tr><td style="font-weight:600;">Edit enforcement dates</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--red);">✗</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--red);">✗</td></tr>
+                <tr><td style="font-weight:600;">Edit project scope</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--red);">✗</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--red);">✗</td></tr>
+                <tr><td style="font-weight:600;">Override project compliance</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--dim);">—</td></tr>
+                <tr><td style="font-weight:600;">Submit for CI review</td><td style="color:var(--green);">✓</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td></tr>
+                <tr><td style="font-weight:600;">Pause enforcement</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--amber);">✓</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td></tr>
+                <tr><td style="font-weight:600;">Deprecate</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--green);">✓</td><td style="color:var(--dim);">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="notice notice-info"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>The "basic contract" (title, description, technical requirements) is frozen once CI begins testing — it represents what the backend check was built against.</div>
+        </div>
+
+        <!-- SLIDE 4: Project Compliance -->
+        <div class="slide">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent-fg);margin-bottom:12px;">Projects</div>
+          <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px;">Project-Level Compliance</h2>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.65;">Once an initiative is Ready for Activation, each in-scope project is tracked individually. Compliance status can be set automatically by CI or manually overridden with evidence.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+            <div><div style="font-size:12px;font-weight:700;margin-bottom:12px;">Project Statuses</div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:10px;"><span class="badge badge-compliant">Compliant</span><span style="font-size:12px;color:var(--muted);">CI check passes. No action needed.</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span class="badge badge-noncompliant">Non-Compliant</span><span style="font-size:12px;color:var(--muted);">Check failing. PRs may be warned/blocked.</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span class="badge badge-inprogress">In Progress</span><span style="font-size:12px;color:var(--muted);">Team is actively remediating.</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><span class="badge badge-na">N/A</span><span style="font-size:12px;color:var(--muted);">Initiative does not apply to this project.</span></div>
+              </div>
+            </div>
+            <div><div style="font-size:12px;font-weight:700;margin-bottom:12px;">Manual Override</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:10px;">When full automation isn't possible (e.g., legacy projects, special toolchains), a project owner can manually override the status by providing evidence:</div>
+              <div style="font-size:11px;display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;gap:6px;"><span style="color:var(--green);">✓</span><span style="color:var(--muted);">Link to PR or commit verifying the change</span></div>
+                <div style="display:flex;gap:6px;"><span style="color:var(--green);">✓</span><span style="color:var(--muted);">Description of manual verification steps</span></div>
+                <div style="display:flex;gap:6px;"><span style="color:var(--green);">✓</span><span style="color:var(--muted);">Approval from team lead</span></div>
+              </div>
+              <div style="margin-top:10px;padding:8px 12px;background:var(--amber-dim);border-radius:var(--r-sm);font-size:11px;color:var(--amber);">Manual overrides are logged in the initiative's project activity trail.</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;background:var(--card-2);border-radius:var(--r-lg);border:1px solid var(--border);font-size:12px;color:var(--muted);line-height:1.6;">
+            <strong style="color:var(--text);">PRs Blocked</strong> — counts the number of pull requests that were blocked by this initiative's CI check. This metric is visible per-initiative and per-project, and resets when a project becomes compliant.
+          </div>
+        </div>
+
+        <!-- SLIDE 5: Enforcement Guide -->
+        <div class="slide">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent-fg);margin-bottom:12px;">Enforcement</div>
+          <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin-bottom:20px;">Managing Active Enforcement</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+            <div class="card">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:7px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="var(--amber)"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>Warn Phase</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;">CI adds a warning comment to non-compliant PRs. PRs are not blocked — teams are notified and can still merge.</div>
+              <div style="margin-top:10px;font-size:11px;color:var(--dim);">Starts on the <strong style="color:var(--amber);">Warn Date</strong></div>
+            </div>
+            <div class="card">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:7px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>Block Phase</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;">CI blocks non-compliant PRs from merging. Teams must remediate or obtain a manual override to proceed.</div>
+              <div style="margin-top:10px;font-size:11px;color:var(--dim);">Starts on the <strong style="color:var(--red);">Block Date</strong></div>
+            </div>
+            <div class="card" style="border-color:rgba(193,154,75,.3);">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--amber);">⏸ Pause Enforcement</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;">Temporarily suspends all CI checks (warn &amp; block) without changing dates. Use when enforcement needs to be paused for a deployment window or incident.</div>
+              <div style="margin-top:10px;font-size:11px;color:var(--dim);">Available in Ready state. Resuming restores enforcement immediately.</div>
+            </div>
+            <div class="card">
+              <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--dim);">🗄 Deprecate Initiative</div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;">Permanently retires the initiative. The CI check is removed from production pipelines. All project statuses are cleared. This action cannot be undone.</div>
+              <div style="margin-top:10px;font-size:11px;color:var(--dim);">Available to initiative owner or CI team.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SLIDE 6: CI Team Workflow -->
+        <div class="slide">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#b88ee0;margin-bottom:12px;">CI Team</div>
+          <h2 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin-bottom:20px;">CI Team Workflow</h2>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:50%;background:rgba(80,130,220,.15);border:1.5px solid #82b0e8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#82b0e8;flex-shrink:0;">1</div><div><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Triage Submitted Initiatives</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Review the CI Review Dashboard for newly submitted initiatives. Assess the request and move to Review to indicate work has begun.</div></div></div>
+            <div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:50%;background:var(--amber-dim);border:1.5px solid var(--amber);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--amber);flex-shrink:0;">2</div><div><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Conduct Feasibility Review</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Schedule a meeting with the initiative author. Assess technical feasibility, effort estimate, and rollout impact. Move to Development or Rejected based on outcome.</div></div></div>
+            <div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:50%;background:rgba(60,140,200,.14);border:1.5px solid #6baed8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#6baed8;flex-shrink:0;">3</div><div><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Build Backend Check</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Implement the CI enforcement check. Coordinate with the author on technical requirements. Log progress comments in the initiative activity log.</div></div></div>
+            <div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:50%;background:rgba(150,90,210,.14);border:1.5px solid #b88ee0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#b88ee0;flex-shrink:0;">4</div><div><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Test in Staging</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Deploy the check to staging. Run validation tests. Confirm correct warn/block behavior. The initiative is fully locked at this stage to preserve test integrity.</div></div></div>
+            <div style="display:flex;gap:16px;align-items:flex-start;"><div style="width:32px;height:32px;border-radius:50%;background:var(--green-dim);border:1.5px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--green);flex-shrink:0;">5</div><div><div style="font-size:13px;font-weight:600;margin-bottom:4px;">Deploy to Production → Ready</div><div style="font-size:12px;color:var(--muted);line-height:1.6;">Deploy the check to production. Move initiative to Ready for Activation. The author can now adjust enforcement dates and scope to begin the rollout.</div></div></div>
+          </div>
+        </div>
+
+      </div><!-- /slides-track -->
+    </div><!-- /slides-viewport -->
+
+    <div class="slide-footer">
+      <button class="slide-nav-btn" id="slide-prev" onclick="slideNav(-1)" disabled>← Previous</button>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="slide-dots" id="slide-dots"></div>
+        <span class="slide-num" id="slide-num">1 / 6</span>
+      </div>
+      <button class="slide-nav-btn" id="slide-next" onclick="slideNav(1)">Next →</button>
+    </div>
+  </div><!-- /slider-shell -->
+</div>
+</div>
+
+<!-- ═══ ACCENT PICKER ═══ -->
+<div class="accent-picker">
+  <div class="picker-label">Theme</div>
+  <div class="accent-row">
+    <div class="accent-swatch active" id="sw-indigo" style="background:#d97a4a;" onclick="setAccent('indigo','sw-indigo')"></div>
+    <div class="accent-swatch" id="sw-teal" style="background:#c19a4b;" onclick="setAccent('teal','sw-teal')"></div>
+    <div class="accent-swatch" id="sw-violet" style="background:#7ba35e;" onclick="setAccent('violet','sw-violet')"></div>
+    <div style="width:1px;height:16px;background:var(--border-s);margin:0 2px;"></div>
+    <button class="icon-btn" onclick="toggleTheme()" style="width:22px;height:22px;font-size:12px;">☀</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════ DATA ═══════════ */
+const INITIATIVES = [
+  { id:1, title:'Xcode 26.3 Migration', shortTitle:'Xcode 26.3', category:'Compliance',
+    desc:'Migrate all iOS projects to Xcode 26.3 for latest Apple toolchain compatibility.',
+    techReqs:"Update dlci/settings/config.json:\n  XCODE_VERSION='26.3.0'",
+    docsUrl:'', jiraUrl:'',
+    status:'draft', warnDate:'2026-06-12', blockDate:'2026-07-11',
+    scopeLabel:'All Projects', projects:284, owner:'Gupta, Anant', ownerInitials:'AG',
+    projectData:[], projectStats:{compliant:0,nonCompliant:0,inProgress:0,na:0,prsBlocked:0}, projectActivities:[],
+    activities:[{time:'Jun 5, 2026 4:50 AM',type:'created',badge:'draft',user:'Gupta, Anant',detail:'Initiative created as Draft.'}]
+  },
+  { id:2, title:'SAST Policy Enforcement', shortTitle:'SAST', category:'Security',
+    desc:'Enforce Static Application Security Testing across all CI pipelines to detect vulnerabilities early.',
+    techReqs:"Add to .dlci.yml pipeline:\n  jobs:\n    - name: sast-check\n      uses: security/sast@v2",
+    docsUrl:'https://docs.internal/sast', jiraUrl:'',
+    status:'submitted', warnDate:'2026-07-01', blockDate:'2026-08-01',
+    scopeLabel:'iOS, Android', projects:182, owner:'Chen, Michael', ownerInitials:'MC',
+    projectData:[], projectStats:{compliant:0,nonCompliant:0,inProgress:0,na:0,prsBlocked:0}, projectActivities:[],
+    activities:[
+      {time:'Jun 1, 2026 9:20 AM',type:'created',badge:'draft',user:'Chen, Michael',detail:'Initiative created as Draft.'},
+      {time:'Jun 7, 2026 2:15 PM',type:'submitted',badge:'submitted',user:'Chen, Michael',detail:'Submitted for CI review. Enforcement: Jul 1 (warn) / Aug 1 (block).'}
+    ]
+  },
+  { id:3, title:'Dependency Version Lock', shortTitle:'Dep Lock', category:'Quality',
+    desc:'Pin all critical third-party dependencies to exact versions to prevent supply chain vulnerabilities.',
+    techReqs:"In Package.swift, use exact version pinning:\n  .package(url: \"...\", exact: \"2.1.0\")",
+    docsUrl:'', jiraUrl:'https://jira.company.com/browse/DLCI-441',
+    status:'ready', warnDate:'2026-06-15', blockDate:'2026-06-30',
+    scopeLabel:'iOS', projects:97, owner:'Patel, Riya', ownerInitials:'RP',
+    projectData:[
+      {id:1,name:'ios-trends | dlci',platform:'iOS',bizUnit:'dlci',status:'non-compliant',prsBlocked:3,lastChecked:'Jun 9, 2026 2:30 PM',manualOverride:false},
+      {id:2,name:'ios-payments | ccb',platform:'iOS',bizUnit:'ccb',status:'compliant',prsBlocked:0,lastChecked:'Jun 9, 2026 1:15 PM',manualOverride:false},
+      {id:3,name:'ios-auth | dlci',platform:'iOS',bizUnit:'dlci',status:'in-progress',prsBlocked:1,lastChecked:'Jun 9, 2026 12:00 PM',manualOverride:false},
+      {id:4,name:'ios-analytics | cib',platform:'iOS',bizUnit:'cib',status:'non-compliant',prsBlocked:1,lastChecked:'Jun 8, 2026 5:00 PM',manualOverride:false},
+      {id:5,name:'ios-core | cib',platform:'iOS',bizUnit:'cib',status:'compliant',prsBlocked:0,lastChecked:'Jun 7, 2026 3:00 PM',manualOverride:true},
+      {id:6,name:'ios-digital | awm',platform:'iOS',bizUnit:'awm',status:'na',prsBlocked:0,lastChecked:'Jun 5, 2026 4:00 PM',manualOverride:false}
+    ],
+    projectStats:{compliant:2,nonCompliant:2,inProgress:1,na:1,prsBlocked:5},
+    projectActivities:[
+      {time:'Jun 9, 2026 1:15 PM',user:'CI System',project:'ios-payments | ccb',from:'in-progress',to:'compliant',type:'auto',evidence:'Automated check passed. All deps using exact version pinning.'},
+      {time:'Jun 7, 2026 3:00 PM',user:'Smith, John',project:'ios-core | cib',from:'non-compliant',to:'compliant',type:'manual',evidence:'Manually verified — Package.swift updated to exact versions. Verified by team lead. PR #4421.'}
+    ],
+    activities:[
+      {time:'May 15, 2026 11:00 AM',type:'created',badge:'draft',user:'Patel, Riya',detail:'Initiative created as Draft.'},
+      {time:'May 20, 2026 3:30 PM',type:'submitted',badge:'submitted',user:'Patel, Riya',detail:'Submitted for CI review.'},
+      {time:'May 22, 2026 10:00 AM',type:'review',badge:'review',user:'Kim, James (CI)',detail:'CI review started. Feasibility meeting scheduled for May 25.'},
+      {time:'May 28, 2026 4:00 PM',type:'development',badge:'development',user:'Kim, James (CI)',detail:'Feasibility confirmed. Development started.'},
+      {time:'Jun 5, 2026 2:00 PM',type:'test',badge:'test',user:'Kim, James (CI)',detail:'Backend check implemented. Moved to staging test.'},
+      {time:'Jun 8, 2026 9:00 AM',type:'ready',badge:'ready',user:'Kim, James (CI)',detail:'Backend checks deployed to production. Ready for activation.'}
+    ]
+  },
+  { id:4, title:'Swift 5.10 Compliance', shortTitle:'Swift 5.10', category:'Compliance',
+    desc:'Ensure all iOS projects adopt Swift 5.10 as minimum language version for improved concurrency support.',
+    techReqs:"Set in project.pbxproj:\n  SWIFT_VERSION = 5.10;",
+    docsUrl:'', jiraUrl:'https://jira.company.com/browse/DLCI-482',
+    status:'ready', warnDate:'2026-06-20', blockDate:'2026-07-15',
+    scopeLabel:'iOS', projects:97, owner:'Gupta, Anant', ownerInitials:'AG',
+    projectData:[
+      {id:1,name:'ios-trends | dlci',platform:'iOS',bizUnit:'dlci',status:'compliant',prsBlocked:0,lastChecked:'Jun 9, 2026 2:00 PM',manualOverride:false},
+      {id:2,name:'ios-payments | ccb',platform:'iOS',bizUnit:'ccb',status:'non-compliant',prsBlocked:2,lastChecked:'Jun 9, 2026 1:00 PM',manualOverride:false},
+      {id:3,name:'ios-auth | dlci',platform:'iOS',bizUnit:'dlci',status:'in-progress',prsBlocked:0,lastChecked:'Jun 8, 2026 4:00 PM',manualOverride:false},
+      {id:4,name:'ios-digital | awm',platform:'iOS',bizUnit:'awm',status:'na',prsBlocked:0,lastChecked:'Jun 7, 2026',manualOverride:false}
+    ],
+    projectStats:{compliant:1,nonCompliant:1,inProgress:1,na:1,prsBlocked:2},
+    projectActivities:[],
+    activities:[
+      {time:'May 28, 2026 2:00 PM',type:'created',badge:'draft',user:'Gupta, Anant',detail:'Initiative created as Draft.'},
+      {time:'Jun 2, 2026 10:00 AM',type:'submitted',badge:'submitted',user:'Gupta, Anant',detail:'Submitted for CI review.'},
+      {time:'Jun 3, 2026 9:00 AM',type:'review',badge:'review',user:'Kim, James (CI)',detail:'Review started. Swift 5.10 check feasibility confirmed.'},
+      {time:'Jun 5, 2026 3:00 PM',type:'development',badge:'development',user:'Kim, James (CI)',detail:'Development started. Est. 1 sprint.'},
+      {time:'Jun 7, 2026 11:00 AM',type:'test',badge:'test',user:'Kim, James (CI)',detail:'Check implemented. Moving to staging test.'},
+      {time:'Jun 8, 2026 2:00 PM',type:'ready',badge:'ready',user:'Kim, James (CI)',detail:'Backend check deployed. Ready for activation.'}
+    ]
+  }
+];
+
+/* ═══════════ CONFIG ═══════════ */
+const SC = {
+  draft:       {label:'Draft',               cls:'badge-draft',       dot:'var(--accent)',  order:1},
+  submitted:   {label:'Submitted',           cls:'badge-submitted',   dot:'#82b0e8',        order:2},
+  review:      {label:'In Review',           cls:'badge-review',      dot:'var(--amber)',   order:3},
+  development: {label:'Development',         cls:'badge-development', dot:'#6baed8',        order:4},
+  test:        {label:'Test',                cls:'badge-test',        dot:'#b88ee0',        order:5},
+  ready:       {label:'Ready for Activation',cls:'badge-ready',       dot:'var(--green)',   order:6},
+  paused:      {label:'Paused',              cls:'badge-paused',      dot:'var(--amber)',   order:7},
+  deprecated:  {label:'Deprecated',         cls:'badge-deprecated',  dot:'var(--dim)',     order:8},
+  rejected:    {label:'Rejected',            cls:'badge-rejected',    dot:'var(--red)',     order:99}
+};
+const PROJ_SC = {
+  compliant:     {label:'Compliant',     cls:'badge-compliant',    dot:'var(--green)'},
+  'non-compliant':{label:'Non-Compliant',cls:'badge-noncompliant', dot:'var(--red)'},
+  'in-progress': {label:'In Progress',  cls:'badge-inprogress',   dot:'var(--amber)'},
+  na:            {label:'N/A',           cls:'badge-na',           dot:'var(--dim)'}
+};
+const STEPS = ['draft','submitted','review','development','test','ready'];
+
+let currentRole = 'user';
+let selectedId  = 1;
+let aiFilter    = 'all';
+let slideIdx    = 0;
+let projFilter  = {};
+
+/* ═══════════ HELPERS ═══════════ */
+function badge(status)     { const c=SC[status]||SC.draft; return `<span class="badge ${c.cls}">${c.label}</span>`; }
+function projBadge(status) { const c=PROJ_SC[status]||PROJ_SC.na; return `<span class="badge ${c.cls}">${c.label}</span>`; }
+function fmtDate(d) { if(!d)return'—'; const[y,m,dy]=d.split('-'); return new Date(+y,+m-1,+dy).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function fmtDateShort(d) { if(!d)return'—'; const[y,m,dy]=d.split('-'); return new Date(+y,+m-1,+dy).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function nowTime() { return 'Jun 9, 2026 '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}); }
+function canEdit(s)   { return ['draft','submitted','review','development'].includes(s); }
+function isLocked(s)  { return s==='test'||s==='rejected'||s==='deprecated'; }
+function isPartial(s) { return s==='ready'||s==='paused'; }
+
+/* ═══════════ NAV ═══════════ */
+const ALL_PAGES = ['dashboard','all-initiatives','detail','create','edit','ci-review','docs'];
+function nav(id, initId) {
+  ALL_PAGES.forEach(p => {
+    const el = document.getElementById('page-'+p);
+    if(el) el.classList.toggle('active', p===id);
+  });
+  ['dashboard','all-initiatives','ci-review','docs'].forEach(p => {
+    const b=document.getElementById('nl-'+p); if(b) b.classList.toggle('active',p===id);
+  });
+  if(id==='detail' && initId){ selectedId=initId; renderDetail(initId); }
+  if(id==='edit'   && initId){ selectedId=initId; renderEdit(initId); }
+  if(id==='dashboard')       renderDashboard();
+  if(id==='all-initiatives') renderAllInitiatives();
+  if(id==='ci-review')       renderCIReview();
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
+/* ═══════════ ROLE ═══════════ */
+function setRole(r) {
+  currentRole=r;
+  document.getElementById('role-user-btn').classList.toggle('active',r==='user');
+  document.getElementById('role-ci-btn').classList.toggle('active',r==='ci');
+  const notice=document.getElementById('ci-role-notice');
+  if(notice) notice.style.display=r==='ci'?'none':'flex';
+  if(document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+  if(document.getElementById('page-detail').classList.contains('active'))   renderDetail(selectedId);
+  if(document.getElementById('page-ci-review').classList.contains('active'))renderCIReview();
+}
+
+/* ═══════════ HOME ═══════════ */
+function renderDashboard() {
+  const active = INITIATIVES.filter(d=>['ready','paused'].includes(d.status));
+  const mine   = INITIATIVES.filter(d=>d.owner==='Gupta, Anant');
+  const totalPRs = active.reduce((s,d)=>s+d.projectStats.prsBlocked,0);
+  const totalProj = active.reduce((s,d)=>s+d.projectStats.compliant+d.projectStats.nonCompliant+d.projectStats.inProgress,0);
+  const compProj  = active.reduce((s,d)=>s+d.projectStats.compliant,0);
+  const compPct = totalProj>0?Math.round(compProj/totalProj*100):0;
+
+  const sg=document.getElementById('home-stats-grid');
+  if(sg) sg.innerHTML=`
+    <div class="card" style="border-top:2px solid var(--accent);"><div class="stat-label">Active Requirements</div><div class="stat-value">${active.length}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">in production</div></div>
+    <div class="card" style="border-top:2px solid var(--green);"><div class="stat-label">Compliance Rate</div><div class="stat-value" style="color:var(--green);">${compPct}%</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">${compProj} of ${totalProj} projects</div></div>
+    <div class="card" style="border-top:2px solid var(--red);"><div class="stat-label">PRs Blocked</div><div class="stat-value" style="color:var(--red);">${totalPRs}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">this month</div></div>
+    <div class="card" style="border-top:2px solid var(--amber);"><div class="stat-label">My Initiatives</div><div class="stat-value" style="color:var(--amber);">${mine.length}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">${mine.filter(d=>d.status==='draft').length} draft</div></div>
+  `;
+
+  // Active tab
+  const ap=document.getElementById('home-active-panel');
+  if(ap) ap.innerHTML = active.length===0
+    ? `<div class="card"><div class="empty-state"><div class="empty-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div style="font-size:15px;font-weight:600;margin-bottom:6px;">No Active Initiatives</div><div style="font-size:13px;color:var(--muted);">No initiatives are currently active in production.</div></div></div>`
+    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;">${active.map(d=>initCard(d)).join('')}</div>`;
+
+  // Mine tab
+  const mp=document.getElementById('home-mine-panel');
+  if(mp) mp.innerHTML = mine.length===0
+    ? `<div class="card"><div class="empty-state" style="padding:40px;"><div style="font-size:14px;color:var(--muted);">You haven't created any initiatives yet.</div><button class="btn btn-primary" style="margin-top:14px;" onclick="nav('create')">+ New Initiative</button></div></div>`
+    : `<div class="table-wrap"><table><thead><tr><th>Initiative</th><th>Status</th><th>Key Dates</th><th>Projects</th><th></th></tr></thead><tbody>${mine.map(d=>`<tr><td><div class="iname">${d.title}</div><div class="idesc">${d.category}</div></td><td>${badge(d.status)}</td><td style="white-space:nowrap;"><div style="font-size:12px;color:var(--amber);font-family:var(--mono);">${fmtDateShort(d.warnDate)}</div><div style="font-size:12px;color:var(--red);font-family:var(--mono);">${fmtDateShort(d.blockDate)}</div></td><td style="font-family:var(--mono);font-size:13px;font-weight:700;">${d.projects}</td><td><button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})">View</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function initCard(d) {
+  const ps=d.projectStats; const tot=ps.compliant+ps.nonCompliant+ps.inProgress+ps.na||1;
+  const cp=Math.round(ps.compliant/tot*100); const np=Math.round(ps.nonCompliant/tot*100); const ip=Math.round(ps.inProgress/tot*100);
+  return `<div class="init-card" onclick="nav('detail',${d.id})">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">
+      <div><div class="iname" style="font-size:15px;">${d.title}</div><div style="display:flex;gap:6px;margin-top:5px;">${badge(d.status)}<span class="tag">${d.category}</span></div></div>
+      <div style="text-align:right;flex-shrink:0;"><div style="font-size:24px;font-weight:700;color:var(--green);letter-spacing:-0.04em;">${cp}%</div><div style="font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">compliant</div></div>
+    </div>
+    <div class="compliance-bar-track"><div class="compliance-bar-seg" style="background:var(--green);width:${cp}%;"></div><div class="compliance-bar-seg" style="background:var(--amber);width:${ip}%;"></div><div class="compliance-bar-seg" style="background:var(--red);width:${np}%;"></div></div>
+    <div style="display:flex;gap:10px;margin-top:6px;font-size:11px;flex-wrap:wrap;">
+      <span style="color:var(--green);">✓ ${ps.compliant} compliant</span>
+      <span style="color:var(--amber);">~ ${ps.inProgress} in progress</span>
+      <span style="color:var(--red);">✗ ${ps.nonCompliant} non-compliant</span>
+    </div>
+    <div class="init-card card-stats">
+      <div class="detail-stat"><div class="analytics-val" style="font-size:18px;">${ps.prsBlocked}</div><div style="font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">PRs Blocked</div></div>
+      <div class="detail-stat"><div style="font-size:13px;font-weight:600;color:var(--amber);">${fmtDateShort(d.warnDate)}</div><div style="font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Warn Date</div></div>
+      <div class="detail-stat"><div style="font-size:13px;font-weight:600;color:var(--red);">${fmtDateShort(d.blockDate)}</div><div style="font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">Block Date</div></div>
+    </div>
+  </div>`;
+}
+
+function homeTab(tab, el) {
+  document.querySelectorAll('.home-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('home-active-panel').style.display = tab==='active'?'block':'none';
+  document.getElementById('home-mine-panel').style.display   = tab==='mine'?'block':'none';
+}
+
+/* ═══════════ ALL INITIATIVES ═══════════ */
+function renderAllInitiatives() {
+  // Analytics
+  const active = INITIATIVES.filter(d=>['ready','paused'].includes(d.status));
+  const totalPRs = INITIATIVES.reduce((s,d)=>s+d.projectStats.prsBlocked,0);
+  const allProj  = active.reduce((s,d)=>s+d.projectData.length,0);
+  const compProj = active.reduce((s,d)=>s+d.projectStats.compliant,0);
+  const ncProj   = active.reduce((s,d)=>s+d.projectStats.nonCompliant,0);
+  const ipProj   = active.reduce((s,d)=>s+d.projectStats.inProgress,0);
+  const naProj   = active.reduce((s,d)=>s+d.projectStats.na,0);
+  const compRate = allProj>0?Math.round(compProj/allProj*100):0;
+
+  const ag=document.getElementById('analytics-grid');
+  if(ag) ag.innerHTML=`
+    <div class="analytics-card" style="border-top:2px solid var(--accent);"><div class="analytics-lbl">Total Initiatives</div><div class="analytics-val">${INITIATIVES.length}</div><div class="analytics-sub">${active.length} active in production</div></div>
+    <div class="analytics-card" style="border-top:2px solid var(--green);"><div class="analytics-lbl">Compliance Rate</div><div class="analytics-val" style="color:var(--green);">${compRate}%</div><div class="analytics-sub">${compProj} / ${allProj} projects compliant</div></div>
+    <div class="analytics-card" style="border-top:2px solid var(--red);"><div class="analytics-lbl">PRs Blocked</div><div class="analytics-val" style="color:var(--red);">${totalPRs}</div><div class="analytics-sub">across all active initiatives</div></div>
+    <div class="analytics-card" style="border-top:2px solid var(--amber);"><div class="analytics-lbl">Non-Compliant</div><div class="analytics-val" style="color:var(--amber);">${ncProj}</div><div class="analytics-sub">${ipProj} in progress</div></div>
+  `;
+
+  // Health bar
+  const tp = allProj||1;
+  document.getElementById('health-bar-compliant').style.width=`${compProj/tp*100}%`;
+  document.getElementById('health-bar-inprogress').style.width=`${ipProj/tp*100}%`;
+  document.getElementById('health-bar-noncompliant').style.width=`${ncProj/tp*100}%`;
+  document.getElementById('health-bar-na').style.width=`${naProj/tp*100}%`;
+  document.getElementById('total-projects-count').textContent=allProj;
+  const leg=document.getElementById('health-bar-legend');
+  if(leg) leg.innerHTML=`
+    <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:var(--green);"></span><span style="color:var(--dim);">Compliant ${compProj}</span></span>
+    <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:var(--amber);"></span><span style="color:var(--dim);">In Progress ${ipProj}</span></span>
+    <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:var(--red);"></span><span style="color:var(--dim);">Non-Compliant ${ncProj}</span></span>
+    <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:var(--dim);"></span><span style="color:var(--dim);">N/A ${naProj}</span></span>
+  `;
+
+  renderAITable();
+}
+
+function renderAITable() {
+  let items = aiFilter==='all' ? [...INITIATIVES] : INITIATIVES.filter(d=>d.status===aiFilter);
+  const tbody=document.getElementById('ai-table-body');
+  if(!tbody) return;
+  if(items.length===0){ tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--dim);">No initiatives match this filter.</td></tr>`; return; }
+
+  const STEP_LABELS = {draft:'Draft',submitted:'Submitted',review:'Review',development:'Dev',test:'Test',ready:'Ready'};
+  tbody.innerHTML = items.map(d => {
+    const curIdx=STEPS.indexOf(d.status);
+    const stepsHtml=STEPS.map((s,i)=>{
+      const done=i<curIdx&&d.status!=='rejected';
+      const cur=s===d.status;
+      return `<span class="step ${done?'done':cur?'current':''}">${STEP_LABELS[s]}</span>${i<STEPS.length-1?'<span class="sarr">→</span>':''}`;
+    }).join('');
+    const ps=d.projectStats; const tot=ps.compliant+ps.nonCompliant+ps.inProgress||1;
+    const compPct=Math.round(ps.compliant/tot*100);
+    const hasProj=d.projectData.length>0;
+    return `<tr>
+      <td style="min-width:180px;"><div class="iname">${d.title}</div><div class="idesc">${d.category}</div></td>
+      <td style="min-width:240px;"><div class="stepper" style="flex-wrap:wrap;gap:3px;">${stepsHtml}</div></td>
+      <td style="font-size:14px;font-weight:700;">${d.projects}</td>
+      <td style="min-width:120px;">${hasProj?`<div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px;">${compPct}%</div><div class="compliance-bar-track" style="height:5px;"><div class="compliance-bar-seg" style="background:var(--green);width:${compPct}%;"></div></div>`:badge('draft').replace('Draft','—').replace('badge-draft','badge-muted')}</td>
+      <td style="white-space:nowrap;"><div style="font-size:12px;font-family:var(--mono);color:var(--amber);">${fmtDateShort(d.warnDate)}</div><div style="font-size:12px;font-family:var(--mono);color:var(--red);">${fmtDateShort(d.blockDate)}</div></td>
+      <td>${badge(d.status)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar" style="width:22px;height:22px;font-size:9px;">${d.ownerInitials}</div><span style="font-size:12px;color:var(--muted);">${d.owner.split(',')[0]}</span></div></td>
+      <td><button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAI(status, el) {
+  aiFilter=status;
+  document.querySelectorAll('#ai-pills .pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  renderAITable();
+}
+
+/* ═══════════ DETAIL ═══════════ */
+function renderDetail(id) {
+  const d=INITIATIVES.find(x=>x.id===id); if(!d) return;
+  const userEdit  = canEdit(d.status) && currentRole==='user';
+  const locked    = isLocked(d.status);
+  const partial   = isPartial(d.status);
+  const showCIPanel = currentRole==='ci' && ['submitted','review','development','test'].includes(d.status);
+  const showProjTable = d.projectData.length>0;
+
+  // Stats bar
+  const ps=d.projectStats;
+  const hasProjStats = (ps.compliant+ps.nonCompliant+ps.inProgress+ps.na)>0;
+
+  // Activity log
+  const actHtml = [...d.activities].reverse().map((a,i,arr)=>{
+    const c=SC[a.badge]||SC.draft;
+    return `<div class="act-item"><div class="act-dot-col"><div class="act-dot" style="background:${a.type==='created'?'var(--accent)':c.dot};"></div>${i<arr.length-1?'<div class="act-vline"></div>':''}</div><div class="act-content"><div class="act-meta"><span class="act-time">${a.time}</span><span class="badge ${c.cls}" style="font-size:10px;">${c.label}</span><span class="act-user">${a.user}</span></div><div class="act-body">${a.detail}</div></div></div>`;
+  }).join('');
+
+  // Project activity
+  const projActHtml = d.projectActivities.length===0
+    ? `<div style="font-size:12px;color:var(--dim);padding:20px 0;text-align:center;">No project activity yet.</div>`
+    : [...d.projectActivities].reverse().map((a,i,arr)=>{
+      const fc=PROJ_SC[a.from]||PROJ_SC.na, tc=PROJ_SC[a.to]||PROJ_SC.na;
+      return `<div class="act-item"><div class="act-dot-col"><div class="act-dot" style="background:${a.type==='auto'?'var(--green)':'var(--accent)'};" title="${a.type==='auto'?'Automated':'Manual'}"></div>${i<arr.length-1?'<div class="act-vline"></div>':''}</div><div class="act-content"><div class="act-meta"><span class="act-time">${a.time}</span><span style="font-size:10px;padding:2px 6px;border-radius:3px;background:${a.type==='auto'?'var(--green-dim)':'var(--amber-dim)'};color:${a.type==='auto'?'var(--green)':'var(--amber)'};">${a.type==='auto'?'Auto':'Manual'}</span><span class="act-user">${a.user}</span></div><div class="act-body"><strong style="color:var(--text);">${a.project}</strong>: <span class="badge ${fc.cls}" style="font-size:10px;">${fc.label}</span> → <span class="badge ${tc.cls}" style="font-size:10px;">${tc.label}</span><div style="margin-top:4px;">${a.evidence}</div></div></div></div>`;
+    }).join('');
+
+  // CI next-status options
+  const ciOpts = {
+    submitted:'<option value="">Move to…</option><option value="review">→ In Review</option><option value="rejected">→ Rejected</option>',
+    review:'<option value="">Move to…</option><option value="development">→ Development</option><option value="rejected">→ Rejected</option>',
+    development:'<option value="">Move to…</option><option value="test">→ Test</option>',
+    test:'<option value="">Move to…</option><option value="ready">→ Ready for Activation</option>'
+  }[d.status]||'';
+
+  // Projects table
+  const projTableHtml = showProjTable ? `
+    <div class="card" style="margin-bottom:20px;">
+      <div class="sec-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Affected Projects
+        <span style="font-size:11px;color:var(--dim);font-weight:400;margin-left:auto;">${d.projectData.length} projects</span>
+      </div>
+      <div class="proj-filter-bar">
+        <input class="proj-search" placeholder="Search projects…" oninput="filterProjects(${id},this.value)">
+        <button class="proj-pill active" onclick="setProjFilter(${id},'all',this)">All</button>
+        <button class="proj-pill" onclick="setProjFilter(${id},'compliant',this)">Compliant</button>
+        <button class="proj-pill" onclick="setProjFilter(${id},'non-compliant',this)">Non-Compliant</button>
+        <button class="proj-pill" onclick="setProjFilter(${id},'in-progress',this)">In Progress</button>
+        <button class="proj-pill" onclick="setProjFilter(${id},'na',this)">N/A</button>
+      </div>
+      <div class="table-wrap" style="margin-bottom:0;">
+        <table>
+          <thead><tr><th>#</th><th>Project</th><th>BizUnit</th><th>Status</th><th>PRs Blocked</th><th>Last Checked</th><th></th></tr></thead>
+          <tbody id="proj-tbody-${id}">${renderProjRows(d)}</tbody>
+        </table>
+      </div>
+    </div>
+  ` : `<div class="card" style="margin-bottom:20px;"><div class="sec-head">Affected Projects</div><div style="font-size:13px;color:var(--muted);padding:10px 0;">${['draft','submitted','review','development','test'].includes(d.status)?'Project compliance tracking begins once the initiative is Ready for Activation.':'No projects tracked.'}</div></div>`;
+
+  document.getElementById('detail-container').innerHTML = `
+    <div style="padding:28px 0 22px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim);">
+          <button class="btn btn-ghost btn-sm" onclick="nav('all-initiatives')" style="padding:0;height:auto;font-size:11px;color:var(--muted);">← All Initiatives</button>
+          <span>/</span><span>${d.title}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${userEdit?`<button class="btn btn-secondary" onclick="nav('edit',${d.id})">Edit</button>`:''}
+          ${partial&&currentRole==='user'?`<button class="btn btn-secondary" onclick="nav('edit',${d.id})">Edit Timeline &amp; Scope</button>`:''}
+          ${d.status==='ready'&&currentRole==='user'?`<button class="btn btn-secondary" onclick="pauseInit(${d.id})" style="color:var(--amber);">⏸ Pause</button>`:''}
+          ${d.status==='paused'&&currentRole==='user'?`<button class="btn btn-primary" onclick="resumeInit(${d.id})">▶ Resume</button>`:''}
+          ${!['deprecated','rejected'].includes(d.status)?`<button class="btn btn-secondary" onclick="deprecateInit(${d.id})" style="color:var(--dim);">Deprecate</button>`:''}
+        </div>
+      </div>
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px;">${d.title}</h1>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${badge(d.status)}<span class="tag">${d.category}</span><span style="font-size:12px;color:var(--dim);">Owned by ${d.owner}</span></div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;overflow:visible;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Lifecycle Progress</div>
+      ${renderStepper(d.status)}
+    </div>
+
+    ${hasProjStats?`<div class="stats-bar">
+      <div class="stats-bar-item"><div class="stats-bar-val" style="color:var(--green);">${ps.compliant}</div><div class="stats-bar-lbl">Compliant</div></div>
+      <div class="stats-bar-item"><div class="stats-bar-val" style="color:var(--red);">${ps.nonCompliant}</div><div class="stats-bar-lbl">Non-Compliant</div></div>
+      <div class="stats-bar-item"><div class="stats-bar-val" style="color:var(--amber);">${ps.inProgress}</div><div class="stats-bar-lbl">In Progress</div></div>
+      <div class="stats-bar-item"><div class="stats-bar-val" style="color:var(--dim);">${ps.na}</div><div class="stats-bar-lbl">N/A</div></div>
+      <div class="stats-bar-item"><div class="stats-bar-val" style="color:var(--red);">${ps.prsBlocked}</div><div class="stats-bar-lbl">PRs Blocked</div></div>
+      <div class="stats-bar-item" style="flex:2;text-align:left;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--dim);margin-bottom:6px;">Compliance</div>
+        <div class="compliance-bar-track" style="height:8px;"><div class="compliance-bar-seg" style="background:var(--green);width:${Math.round(ps.compliant/(ps.compliant+ps.nonCompliant+ps.inProgress+ps.na||1)*100)}%;"></div><div class="compliance-bar-seg" style="background:var(--amber);width:${Math.round(ps.inProgress/(ps.compliant+ps.nonCompliant+ps.inProgress+ps.na||1)*100)}%;"></div><div class="compliance-bar-seg" style="background:var(--red);width:${Math.round(ps.nonCompliant/(ps.compliant+ps.nonCompliant+ps.inProgress+ps.na||1)*100)}%;"></div></div>
+      </div>
+    </div>`:''}
+
+    ${d.status==='draft'&&currentRole==='user'?`<div class="submit-banner"><div><div style="font-size:14px;font-weight:600;">Ready to submit for CI review?</div><div style="font-size:12px;color:var(--muted);margin-top:4px;">CI team will schedule a feasibility review. You can still edit until they begin.</div></div><button class="btn btn-primary" onclick="submitInit(${d.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9Z"/></svg>Submit for CI Review</button></div>`:''}
+    ${d.status==='submitted'&&currentRole==='user'?`<div style="background:rgba(80,130,220,.1);border:1px solid rgba(80,130,220,.25);border-radius:var(--r-lg);padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;"><div><div style="font-size:13px;font-weight:600;color:#82b0e8;">Awaiting CI triage</div><div style="font-size:12px;color:var(--muted);margin-top:3px;">You'll be notified when CI begins review. You can retract to edit if needed.</div></div><button class="btn btn-secondary btn-sm" onclick="retractInit(${d.id})">Retract to Draft</button></div>`:''}
+    ${d.status==='paused'?`<div class="paused-banner"><div style="display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="var(--amber)" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg><div><div style="font-size:13px;font-weight:600;color:var(--amber);">Enforcement Paused</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">CI checks are not running. Projects are not being warned or blocked.</div></div></div><button class="btn btn-primary" onclick="resumeInit(${d.id})">▶ Resume Enforcement</button></div>`:''}
+    ${d.status==='deprecated'?`<div class="deprecated-banner"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14z"/></svg><span>This initiative has been <strong>deprecated</strong> and retired. CI checks have been removed from production.</span></div>`:''}
+    ${locked&&d.status!=='deprecated'?`<div class="locked-banner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Initiative is in <strong style="margin-left:3px;">${SC[d.status].label}</strong> — all edits are locked.</div>`:''}
+    ${partial&&currentRole==='user'?`<div class="locked-banner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Basic contract is frozen. Enforcement dates and scope are still editable.</div>`:''}
+    ${showCIPanel?`<div class="ci-action-panel"><div class="ci-panel-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>CI Team Actions</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"><div class="fg"><label>Advance Status</label><select class="select" id="ci-new-status" style="border-color:rgba(150,90,210,.4);">${ciOpts}</select></div><div class="fg"><label>Comment <span class="req">*</span></label><input class="input" id="ci-comment" placeholder="Reason for this transition…"></div></div><div style="margin-top:12px;"><button class="btn btn-primary" style="background:#8a5cc8;" onclick="advanceStatus(${d.id})">Update Status</button></div></div>`:''}
+
+    <div class="info-cards" style="margin-bottom:20px;">
+      <div class="info-card"><div class="info-card-label">Current Status</div>${badge(d.status)}<div style="font-size:11px;color:var(--muted);margin-top:8px;">${statusNote(d.status)}</div></div>
+      <div class="info-card"><div class="info-card-label">Scope</div><div style="font-size:14px;font-weight:600;margin-bottom:4px;">${d.scopeLabel}</div><div style="font-size:12px;color:var(--muted);">${d.projects} projects</div></div>
+      <div class="info-card"><div class="info-card-label">Warn Date</div><div style="font-size:17px;font-weight:700;font-family:var(--mono);color:var(--amber);">${fmtDate(d.warnDate)}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">CI starts warning</div></div>
+      <div class="info-card"><div class="info-card-label">Block Date</div><div style="font-size:17px;font-weight:700;font-family:var(--mono);color:var(--red);">${fmtDate(d.blockDate)}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">CI starts blocking PRs</div></div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card"><div class="sec-head">Description</div><div style="font-size:13px;color:var(--muted);line-height:1.7;">${d.desc}</div>${d.docsUrl?`<div style="margin-top:12px;"><a href="${d.docsUrl}" style="font-size:12px;color:var(--accent-fg);">📄 Documentation →</a></div>`:''}${d.jiraUrl?`<div style="margin-top:6px;"><a href="${d.jiraUrl}" style="font-size:12px;color:var(--accent-fg);">🔗 Jira ticket →</a></div>`:''}</div>
+      <div class="card"><div class="sec-head">Technical Requirements</div><pre style="font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.6;white-space:pre-wrap;margin:0;">${d.techReqs}</pre></div>
+    </div>
+
+    ${projTableHtml}
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <div class="sec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Project Activity<span style="font-size:11px;color:var(--dim);font-weight:400;margin-left:auto;">${d.projectActivities.length} events</span></div>
+        <div class="act-timeline">${projActHtml}</div>
+      </div>
+      <div class="card">
+        <div class="sec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Initiative Activity<span style="font-size:11px;color:var(--dim);font-weight:400;margin-left:auto;">${d.activities.length} events</span></div>
+        <div class="act-timeline">${actHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderProjRows(d, filter='all', search='') {
+  projFilter[d.id] = {status:filter, search:search||''};
+  let rows = d.projectData;
+  if(filter!=='all') rows=rows.filter(p=>p.status===filter);
+  if(search) rows=rows.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()));
+  if(rows.length===0) return `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--dim);">No projects match this filter.</td></tr>`;
+  const canOverride=['ready','paused'].includes(d.status)&&currentRole==='user';
+  return rows.map(p=>`
+    <tr id="proj-row-${d.id}-${p.id}">
+      <td style="font-family:var(--mono);font-size:11px;color:var(--dim);">${p.id}</td>
+      <td><div class="iname" style="font-size:13px;">${p.name}${p.manualOverride?'<span class="manual-badge">MANUAL</span>':''}</div></td>
+      <td><span style="font-size:11px;color:var(--muted);">${p.bizUnit}</span></td>
+      <td>${projBadge(p.status)}</td>
+      <td><span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${p.prsBlocked>0?'var(--red)':'var(--dim)'};">${p.prsBlocked}</span></td>
+      <td style="font-size:11px;color:var(--dim);white-space:nowrap;">${p.lastChecked}</td>
+      <td>${canOverride?`<button class="btn btn-secondary btn-sm" onclick="toggleOverride(${d.id},${p.id})">Override</button>`:''}</td>
+    </tr>
+    <tr class="override-row" id="override-row-${d.id}-${p.id}">
+      <td colspan="7">
+        <div class="override-form">
+          <div class="fg"><label>New Status</label>
+            <select class="select" id="ov-status-${d.id}-${p.id}" style="min-width:160px;">
+              <option value="compliant">Compliant</option>
+              <option value="non-compliant">Non-Compliant</option>
+              <option value="in-progress">In Progress</option>
+              <option value="na">N/A</option>
+            </select>
+          </div>
+          <div class="fg" style="flex:1;min-width:200px;"><label>Evidence <span class="req">*</span></label>
+            <input class="input" id="ov-evidence-${d.id}-${p.id}" placeholder="Link to PR, commit, or description of verification…">
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <button class="btn btn-primary btn-sm" onclick="submitOverride(${d.id},${p.id})">Save Override</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleOverride(${d.id},${p.id})">Cancel</button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterProjects(initId, search) {
+  const d=INITIATIVES.find(x=>x.id===initId); if(!d) return;
+  const cf=projFilter[initId]||{status:'all',search:''};
+  const tbody=document.getElementById(`proj-tbody-${initId}`);
+  if(tbody) tbody.innerHTML=renderProjRows(d,cf.status,search);
+}
+
+function setProjFilter(initId, status, el) {
+  const d=INITIATIVES.find(x=>x.id===initId); if(!d) return;
+  const cf=projFilter[initId]||{status:'all',search:''};
+  const parent=el.closest('.proj-filter-bar');
+  if(parent) parent.querySelectorAll('.proj-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  const tbody=document.getElementById(`proj-tbody-${initId}`);
+  if(tbody) tbody.innerHTML=renderProjRows(d,status,cf.search||'');
+}
+
+function toggleOverride(initId, projId) {
+  const row=document.getElementById(`override-row-${initId}-${projId}`);
+  if(row) row.classList.toggle('open');
+}
+
+function submitOverride(initId, projId) {
+  const d=INITIATIVES.find(x=>x.id===initId); if(!d) return;
+  const p=d.projectData.find(x=>x.id===projId); if(!p) return;
+  const newStatus=document.getElementById(`ov-status-${initId}-${projId}`)?.value;
+  const evidence=document.getElementById(`ov-evidence-${initId}-${projId}`)?.value;
+  if(!evidence){ alert('Evidence is required for a manual override.'); return; }
+  const oldStatus=p.status;
+  p.status=newStatus; p.manualOverride=true; p.lastChecked=nowTime();
+  // Update stats
+  const ps=d.projectStats;
+  if(oldStatus==='compliant') ps.compliant--;
+  else if(oldStatus==='non-compliant') ps.nonCompliant--;
+  else if(oldStatus==='in-progress') ps.inProgress--;
+  else if(oldStatus==='na') ps.na--;
+  if(newStatus==='compliant') ps.compliant++;
+  else if(newStatus==='non-compliant') ps.nonCompliant++;
+  else if(newStatus==='in-progress') ps.inProgress++;
+  else if(newStatus==='na') ps.na++;
+  d.projectActivities.unshift({time:nowTime(),user:'Gupta, Anant',project:p.name,from:oldStatus,to:newStatus,type:'manual',evidence});
+  renderDetail(initId);
+}
+
+function renderStepper(status) {
+  const isRej=status==='rejected', isPaused=status==='paused', isDeprc=status==='deprecated';
+  const curIdx=STEPS.indexOf(status);
+  let html='<div class="lc-stepper">';
+  STEPS.forEach((s,i)=>{
+    const done=i<curIdx&&!isRej&&!isPaused&&!isDeprc;
+    const cur=s===status;
+    let cls=done?'done':cur?'current':'';
+    let lCls=done?'done':cur?'current':'';
+    const inner=done?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':(i+1);
+    html+=`<div class="lc-step"><div class="lc-dot ${cls}">${inner}</div><div class="lc-label ${lCls}">${{draft:'Draft',submitted:'Submitted',review:'Review',development:'Dev',test:'Test',ready:'Ready'}[s]}</div></div>`;
+    if(i<STEPS.length-1) html+=`<div class="lc-conn ${done?'done':''}"></div>`;
+    if(s==='review') html+=`<div style="display:flex;flex-direction:column;align-items:center;margin-top:0;flex-shrink:0;width:0;overflow:visible;"><div style="position:relative;display:flex;flex-direction:column;align-items:center;margin-left:-54px;margin-top:2px;"><div style="width:2px;height:16px;background:${isRej?'var(--red)':'var(--border-s)'};"></div><div class="lc-step"><div class="lc-dot ${isRej?'rejected-cur':''}" style="font-size:10px;">✕</div><div class="lc-label ${isRej?'rejected-cur':''}">Rejected</div></div></div></div>`;
+    if(s==='ready') {
+      html+=`<div style="display:flex;flex-direction:column;align-items:center;margin-top:0;flex-shrink:0;width:0;overflow:visible;"><div style="position:relative;display:flex;flex-direction:column;align-items:center;margin-left:-54px;margin-top:2px;"><div style="width:2px;height:16px;background:${isPaused?'var(--amber)':isDeprc?'var(--dim)':'var(--border-s)'};"></div><div style="display:flex;gap:10px;"><div class="lc-step"><div class="lc-dot ${isPaused?'paused-cur':''}">⏸</div><div class="lc-label ${isPaused?'paused-cur':''}">Paused</div></div><div class="lc-step"><div class="lc-dot ${isDeprc?'deprecated-cur':''}">🗄</div><div class="lc-label ${isDeprc?'deprecated-cur':''}">Deprecated</div></div></div></div></div>`;
+    }
+  });
+  html+='</div>'; return html;
+}
+
+function statusNote(s) {
+  return {draft:'Saved privately — submit when ready',submitted:'Awaiting CI team triage',review:'CI team evaluating feasibility',development:'CI building the backend check',test:'Validation in progress — edits locked',ready:'Backend live — enforcement &amp; scope editable',paused:'Enforcement temporarily suspended',deprecated:'Retired — CI checks removed',rejected:'Not feasible — see activity log'}[s]||'';
+}
+
+/* ═══════════ EDIT ═══════════ */
+function renderEdit(id) {
+  const d=INITIATIVES.find(x=>x.id===id); if(!d) return;
+  const frozen=isLocked(d.status), partial=isPartial(d.status), basicLocked=frozen||partial;
+  let html=`<div class="page-header"><div><div style="font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="nav('detail',${d.id})" style="padding:0;height:auto;font-size:11px;">← Detail</button><span style="color:var(--dim);">/</span><span>Edit: ${d.title}</span></div><h1>Edit Initiative</h1><div class="sub">${badge(d.status)}</div></div><button class="btn btn-secondary" onclick="nav('detail',${d.id})">Cancel</button></div>`;
+  if(frozen) { html+=`<div class="locked-banner" style="margin-bottom:24px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Locked during <strong style="margin:0 3px;">${SC[d.status].label}</strong> — all fields are read-only.<button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})" style="margin-left:auto;">Back</button></div>`; }
+  else if(partial) { html+=`<div class="locked-banner" style="margin-bottom:16px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Basic contract frozen. Update <strong style="margin:0 3px;">enforcement timeline</strong> and <strong style="margin-right:3px;">project scope</strong> only.</div>`; }
+  html+=`<div class="form-layout"><div>
+    <div class="fsec"><div class="fsec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Basic Information${basicLocked?'<span class="lock-tag">FROZEN</span>':''}</div><div class="fsec-body">
+      <div class="fg2" style="margin-bottom:14px;"><div class="fg ${basicLocked?'field-locked':''}"><label>Short Title</label><input class="input" value="${d.shortTitle}" ${basicLocked?'readonly':''}></div><div class="fg ${basicLocked?'field-locked':''}"><label>Category</label><select class="select" ${basicLocked?'disabled':''}><option ${d.category==='Compliance'?'selected':''}>Compliance</option><option ${d.category==='Security'?'selected':''}>Security</option><option ${d.category==='Quality'?'selected':''}>Quality</option></select></div></div>
+      <div class="fg ${basicLocked?'field-locked':''}" style="margin-bottom:14px;"><label>Full Title</label><input class="input" value="${d.title}" ${basicLocked?'readonly':''}></div>
+      <div class="fg ${basicLocked?'field-locked':''}" style="margin-bottom:14px;"><label>Description</label><textarea class="textarea" ${basicLocked?'readonly':''}>${d.desc}</textarea></div>
+      <div class="fg ${basicLocked?'field-locked':''}" style="margin-bottom:14px;"><label>Technical Requirements</label><textarea class="textarea" style="font-family:var(--mono);font-size:12px;" ${basicLocked?'readonly':''}>${d.techReqs}</textarea></div>
+    </div></div>
+    <div class="fsec" ${frozen?'style="opacity:.5;pointer-events:none;"':''}><div class="fsec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>CI Enforcement Timeline${frozen?'<span class="lock-tag">FROZEN</span>':''}</div><div class="fsec-body"><div class="fg2"><div class="fg"><label>Warn Date</label><input class="input" type="date" value="${d.warnDate}" ${frozen?'readonly':''}></div><div class="fg"><label>Block Date</label><input class="input" type="date" value="${d.blockDate}" ${frozen?'readonly':''}></div></div></div></div>
+    <div class="fsec" ${frozen?'style="opacity:.5;pointer-events:none;"':''}><div class="fsec-head"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Project Scope${frozen?'<span class="lock-tag">FROZEN</span>':''}</div><div class="fsec-body"><label class="check-row"><input type="checkbox" checked><div><div class="check-main">All Projects</div></div></label><label class="check-row" style="border-bottom:none;"><input type="checkbox"><div><div class="check-main">By Platform</div></div></label></div></div>
+    ${!frozen?`<div style="display:flex;gap:10px;margin-top:4px;"><button class="btn btn-primary" style="height:38px;padding:0 24px;" onclick="nav('detail',${d.id})">Save Changes</button><button class="btn btn-secondary" onclick="nav('detail',${d.id})">Cancel</button></div>`:''}
+  </div><div class="sidebar-sticky"><div class="card"><div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Edit Permissions</div>${badge(d.status)}<div style="font-size:12px;color:var(--muted);margin-top:8px;">${statusNote(d.status)}</div><hr class="divider"><div style="display:flex;flex-direction:column;gap:7px;font-size:12px;"><div>${basicLocked?'<span style="color:var(--amber);">🔒</span>':'<span style="color:var(--green);">✓</span>'} Basic info</div><div>${frozen?'<span style="color:var(--amber);">🔒</span>':'<span style="color:var(--green);">✓</span>'} Enforcement timeline</div><div>${frozen?'<span style="color:var(--amber);">🔒</span>':'<span style="color:var(--green);">✓</span>'} Project scope</div></div></div></div></div>`;
+  document.getElementById('edit-container').innerHTML=html;
+}
+
+/* ═══════════ CI REVIEW ═══════════ */
+function renderCIReview() {
+  const notice=document.getElementById('ci-role-notice');
+  if(notice) notice.style.display=currentRole==='ci'?'none':'flex';
+  const isCI=currentRole==='ci';
+  const actionable=INITIATIVES.filter(d=>['submitted','review','development','test'].includes(d.status));
+  const tbody=document.getElementById('ci-review-tbody'); if(!tbody) return;
+  tbody.innerHTML=actionable.length===0
+    ? `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--dim);">No initiatives awaiting CI action.</td></tr>`
+    : actionable.map(d=>{
+      const subTime=d.activities.find(a=>a.type==='submitted')?.time||'—';
+      const opts={submitted:'<option value="">Move to…</option><option value="review">→ In Review</option><option value="rejected">→ Rejected</option>',review:'<option value="">Move to…</option><option value="development">→ Development</option><option value="rejected">→ Rejected</option>',development:'<option value="">Move to…</option><option value="test">→ Test</option>',test:'<option value="">Move to…</option><option value="ready">→ Ready for Activation</option>'}[d.status]||'';
+      return `<tr><td><div class="iname">${d.title}</div><div class="idesc">${d.category} · ${d.scopeLabel}</div></td><td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar" style="width:22px;height:22px;font-size:9px;">${d.ownerInitials}</div>${d.owner}</div></td><td style="font-size:12px;font-family:var(--mono);color:var(--muted);">${subTime}</td><td>${badge(d.status)}</td><td><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${isCI?`<select class="select" id="ci-sel-${d.id}" style="min-width:160px;font-size:12px;">${opts}</select><button class="btn btn-primary btn-sm" onclick="ciAdvance(${d.id})" style="background:#8a5cc8;">Update</button>`:'<span style="font-size:11px;color:var(--dim);">Switch to CI Team role</span>'}<button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})">View</button></div></td></tr>`;
+    }).join('');
+}
+
+/* ═══════════ ACTIONS ═══════════ */
+function submitInit(id) {
+  const d=INITIATIVES.find(x=>x.id===id); if(!d) return;
+  d.status='submitted';
+  d.activities.push({time:nowTime(),type:'submitted',badge:'submitted',user:'Gupta, Anant',detail:'Submitted for CI review.'});
+  renderDetail(id);
+}
+function retractInit(id) {
+  const d=INITIATIVES.find(x=>x.id===id); if(!d) return;
+  d.status='draft';
+  d.activities.push({time:nowTime(),type:'draft',badge:'draft',user:'Gupta, Anant',detail:'Retracted to Draft.'});
+  renderDetail(id);
+}
+function pauseInit(id) {
+  const d=INITIATIVES.find(x=>x.id===id); if(!d) return;
+  d.status='paused';
+  d.activities.push({time:nowTime(),type:'paused',badge:'paused',user:'Gupta, Anant',detail:'Enforcement paused. CI checks suspended.'});
+  renderDetail(id);
+}
+function resumeInit(id) {
+  const d=INITIATIVES.find(x=>x.id===id); if(!d) return;
+  d.status='ready';
+  d.activities.push({time:nowTime(),type:'ready',badge:'ready',user:'Gupta, Anant',detail:'Enforcement resumed.'});
+  renderDetail(id);
+}
+function deprecateInit(id) {
+  if(!confirm('Are you sure you want to deprecate this initiative? This retires it permanently and removes CI checks from production.')) return;
+  const d=INITIATIVES.find(x=>x.id===id); if(!d) return;
+  d.status='deprecated';
+  d.activities.push({time:nowTime(),type:'deprecated',badge:'deprecated',user:'Gupta, Anant',detail:'Initiative deprecated. CI checks removed from production.'});
+  renderDetail(id);
+}
+function advanceStatus(id) {
+  const d=INITIATIVES.find(x=>x.id===id);
+  const sel=document.getElementById('ci-new-status');
+  const cmt=document.getElementById('ci-comment');
+  if(!d||!sel?.value) return;
+  d.status=sel.value;
+  d.activities.push({time:nowTime(),type:sel.value,badge:sel.value,user:'Kim, James (CI)',detail:cmt?.value||`CI team moved to ${SC[sel.value].label}.`});
+  renderDetail(id);
+}
+function ciAdvance(id) {
+  const d=INITIATIVES.find(x=>x.id===id);
+  const sel=document.getElementById('ci-sel-'+id);
+  if(!d||!sel?.value){ alert('Select a new status.'); return; }
+  d.status=sel.value;
+  d.activities.push({time:nowTime(),type:sel.value,badge:sel.value,user:'Kim, James (CI)',detail:`Status advanced to ${SC[sel.value].label}.`});
+  renderCIReview();
+}
+
+/* ═══════════ DOCS SLIDER ═══════════ */
+const TOTAL_SLIDES=6;
+function slideNav(dir) {
+  slideIdx=Math.max(0,Math.min(TOTAL_SLIDES-1,slideIdx+dir));
+  document.getElementById('slides-track').style.transform=`translateX(-${slideIdx*100}%)`;
+  document.getElementById('slide-prev').disabled=slideIdx===0;
+  document.getElementById('slide-next').disabled=slideIdx===TOTAL_SLIDES-1;
+  document.getElementById('slide-num').textContent=`${slideIdx+1} / ${TOTAL_SLIDES}`;
+  document.querySelectorAll('.slide-dot').forEach((d,i)=>d.classList.toggle('active',i===slideIdx));
+}
+function initSlider() {
+  const dots=document.getElementById('slide-dots');
+  if(!dots||dots.children.length) return;
+  for(let i=0;i<TOTAL_SLIDES;i++){
+    const d=document.createElement('div');
+    d.className='slide-dot'+(i===0?' active':'');
+    d.onclick=()=>{slideIdx=i-1;slideNav(1);}; // go to slide i
+    d.onclick=()=>{ const target=i; slideIdx=target-1; slideNav(1); };
+    dots.appendChild(d);
+  }
+}
+
+/* ═══════════ FORM HELPERS ═══════════ */
+function toggleSub(id, show) { const el=document.getElementById(id); if(el) el.style.display=show?'block':'none'; }
+
+/* ═══════════ THEME & ACCENT ═══════════ */
+function toggleTheme() {
+  const b=document.body, h=document.documentElement;
+  const isDark=b.getAttribute('data-theme')==='dark';
+  const next=isDark?'light':'dark';
+  b.setAttribute('data-theme',next); h.setAttribute('data-theme',next);
+  localStorage.setItem('ci-theme',next);
+  document.getElementById('theme-btn').textContent=next==='dark'?'☀':'☾';
+}
+function setAccent(accent, swId) {
+  document.body.setAttribute('data-accent',accent);
+  document.documentElement.setAttribute('data-accent',accent);
+  document.querySelectorAll('.accent-swatch').forEach(s=>s.classList.remove('active'));
+  document.getElementById(swId)?.classList.add('active');
+  localStorage.setItem('ci-accent',accent);
+}
+
+/* ═══════════ INIT ═══════════ */
+(function(){
+  const theme=localStorage.getItem('ci-theme')||'dark';
+  const accent=localStorage.getItem('ci-accent')||'indigo';
+  document.body.setAttribute('data-theme',theme); document.documentElement.setAttribute('data-theme',theme);
+  document.body.setAttribute('data-accent',accent); document.documentElement.setAttribute('data-accent',accent);
+  document.getElementById('theme-btn').textContent=theme==='dark'?'☀':'☾';
+  const swMap={indigo:'sw-indigo',teal:'sw-teal',violet:'sw-violet'};
+  if(swMap[accent]){ document.querySelectorAll('.accent-swatch').forEach(s=>s.classList.remove('active')); document.getElementById(swMap[accent])?.classList.add('active'); }
+  initSlider();
+  nav('dashboard');
+})();
+</script>
+</body>
+</html>
