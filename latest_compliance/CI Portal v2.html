@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-accent="indigo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compliance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ci-styles.css">
+<style>
+/* ── NEW LIFECYCLE BADGES ──────────────────── */
+.badge-submitted   { background:rgba(80,130,220,.15); color:#82b0e8; }
+.badge-review      { background:var(--amber-dim); color:var(--amber); }
+.badge-development { background:rgba(60,140,200,.14); color:#6baed8; }
+.badge-test        { background:rgba(150,90,210,.14); color:#b88ee0; }
+.badge-ready       { background:var(--green-dim); color:var(--green); }
+.badge-rejected    { background:var(--red-dim); color:var(--red); }
+.badge-draft       { background:var(--accent-dim); color:var(--accent-fg); }
+
+/* ── ROLE TOGGLE ───────────────────────────── */
+.role-toggle { display:flex; align-items:center; padding:3px; background:var(--card); border:1px solid var(--border); border-radius:100px; gap:2px; }
+.role-btn { padding:3px 11px; border-radius:100px; font-size:11px; font-weight:600; border:none; background:none; color:var(--muted); cursor:pointer; transition:all .15s; font-family:inherit; white-space:nowrap; }
+.role-btn.active { background:var(--accent); color:#fff; }
+
+/* ── LIFECYCLE STEPPER (full 7-state) ───────── */
+.lc-stepper { display:flex; align-items:center; flex-wrap:nowrap; overflow-x:auto; gap:0; padding:2px 0 8px; }
+.lc-step { display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; }
+.lc-step-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; border:2px solid var(--border); background:var(--card-2); color:var(--dim); transition:all .3s; }
+.lc-step-dot.done { background:var(--green-dim); border-color:var(--green); color:var(--green); }
+.lc-step-dot.current { border-color:var(--accent); background:var(--accent-dim); color:var(--accent-fg); box-shadow:0 0 0 4px var(--accent-dim); }
+.lc-step-dot.rejected-current { border-color:var(--red); background:var(--red-dim); color:var(--red); box-shadow:0 0 0 4px var(--red-dim); }
+.lc-step-label { font-size:10px; font-weight:600; color:var(--dim); white-space:nowrap; letter-spacing:0.01em; }
+.lc-step-label.done { color:var(--green); }
+.lc-step-label.current { color:var(--accent-fg); }
+.lc-step-label.rejected-current { color:var(--red); }
+.lc-conn { width:32px; height:2px; background:var(--border-s); flex-shrink:0; margin-top:-14px; transition:background .3s; }
+.lc-conn.done { background:var(--green); }
+.lc-conn.partial { background:linear-gradient(90deg, var(--green) 50%, var(--border-s) 50%); }
+/* Rejected branch */
+.lc-reject-branch { display:flex; flex-direction:column; align-items:center; margin-top:-22px; position:relative; }
+.lc-reject-line-v { width:2px; height:22px; background:var(--red); margin:0 auto; }
+.lc-reject-line-h { width:34px; height:2px; background:var(--red); }
+.lc-reject-label { font-size:10px; font-weight:600; color:var(--red); margin-top:4px; white-space:nowrap; }
+
+/* ── SUBMIT / ACTION BANNERS ────────────────── */
+.submit-banner { background:var(--accent-dim); border:1px solid var(--accent); border-radius:var(--r-lg); padding:16px 20px; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.ci-action-panel { background:rgba(150,90,210,.08); border:1px solid rgba(150,90,210,.25); border-radius:var(--r-lg); padding:18px 20px; margin-bottom:20px; }
+.ci-panel-head { display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:13px; font-weight:700; color:#b88ee0; }
+.ci-status-btn { padding:5px 12px; border-radius:var(--r-sm); font-size:12px; font-weight:600; border:1px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; font-family:inherit; transition:all .15s; }
+.ci-status-btn:hover { background:var(--card-2); }
+
+/* ── EDIT FIELD LOCKING ─────────────────────── */
+.field-locked .input, .field-locked .select, .field-locked .textarea { opacity:.45; pointer-events:none; background:var(--card-2) !important; }
+.locked-banner { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--amber-dim); color:var(--amber); border:1px solid rgba(193,154,75,.3); border-radius:var(--r-sm); font-size:12px; margin-bottom:16px; }
+.locked-banner svg { flex-shrink:0; }
+.lock-tag { font-size:10px; padding:2px 6px; border-radius:3px; background:rgba(193,154,75,.2); color:var(--amber); font-weight:700; letter-spacing:0.04em; margin-left:6px; vertical-align:middle; }
+
+/* ── ACTIVITY LOG ───────────────────────────── */
+.act-timeline { display:flex; flex-direction:column; gap:0; }
+.act-item { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--border-s); }
+.act-item:last-child { border-bottom:none; }
+.act-dot-col { display:flex; flex-direction:column; align-items:center; flex-shrink:0; padding-top:4px; }
+.act-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.act-line { width:2px; flex:1; background:var(--border-s); margin-top:4px; }
+.act-content { flex:1; min-width:0; }
+.act-header { display:flex; align-items:center; gap:8px; margin-bottom:3px; flex-wrap:wrap; }
+.act-time-label { font-size:11px; color:var(--dim); font-family:var(--mono); }
+.act-user-label { font-size:12px; font-weight:600; color:var(--muted); }
+.act-body { font-size:12px; color:var(--muted); line-height:1.5; }
+
+/* ── DOCS PAGE ──────────────────────────────── */
+.docs-flow { display:grid; grid-template-rows:auto auto; gap:0; }
+.docs-main-track { display:flex; align-items:center; gap:0; overflow-x:auto; padding-bottom:8px; }
+.docs-state-card { flex-shrink:0; width:136px; border-radius:var(--r-lg); overflow:hidden; border:1.5px solid; }
+.docs-state-card-head { padding:10px 12px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; text-align:center; }
+.docs-state-card-body { padding:10px 12px; font-size:11px; line-height:1.55; color:var(--muted); border-top:1px solid var(--border-s); }
+.docs-arrow-h { font-size:18px; color:var(--dim); padding:0 2px; flex-shrink:0; margin-top:-8px; }
+.docs-state-ref { border:1px solid var(--border); border-radius:var(--r-lg); padding:18px; margin-bottom:10px; }
+.docs-state-ref-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.perm-table { width:100%; border-collapse:collapse; font-size:12px; }
+.perm-table th { padding:8px 12px; background:var(--card-2); text-align:left; font-size:10px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); }
+.perm-table td { padding:8px 12px; border-top:1px solid var(--border-s); vertical-align:top; }
+.perm-check { color:var(--green); font-size:13px; }
+.perm-cross { color:var(--red); font-size:13px; }
+.perm-part  { color:var(--amber); font-size:13px; }
+
+/* ── SCOPE PILLS ───────────────────────────── */
+.scope-pill { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:100px; border:1px solid var(--border); cursor:pointer; font-size:12px; font-weight:500; transition:all .15s; }
+.scope-pill input { accent-color:var(--accent); margin:0; }
+.scope-pill:has(input:checked) { background:var(--accent-dim); border-color:transparent; color:var(--accent-fg); }
+.scope-pill .pct { font-size:10px; font-weight:700; font-family:var(--mono); color:var(--dim); }
+.scope-sub { padding:12px 0 4px 24px; }
+
+/* ── CI REVIEW TABLE ────────────────────────── */
+.ci-row-actions { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+
+/* ── GAVEL HERO ─────────────────────────────── */
+.gavel-icon-wrap { width:46px; height:46px; background:var(--accent-dim); border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body data-theme="dark" data-accent="indigo">
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<nav class="nav">
+  <div class="nav-brand">
+    <!-- Gavel icon -->
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.5 3.5L21.5 14.5L17.5 18.5L6.5 7.5Z"/>
+      <path d="M3 21L8 16"/>
+      <path d="M13.5 21.5H21.5"/>
+    </svg>
+    Compliance Dashboard
+    <span class="env-badge">DB: Local</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-link" id="nl-dashboard" onclick="nav('dashboard')">Home</button>
+    <button class="nav-link" id="nl-initiatives" onclick="nav('initiatives')">Initiatives</button>
+    <button class="nav-link" id="nl-ci-review" onclick="nav('ci-review')">CI Review</button>
+    <button class="nav-link" id="nl-docs" onclick="nav('docs')">Lifecycle Docs</button>
+  </div>
+  <div class="nav-right">
+    <input class="search-bar" placeholder="Search initiatives…">
+    <div class="role-toggle">
+      <button class="role-btn active" id="role-user-btn" onclick="setRole('user')">User</button>
+      <button class="role-btn" id="role-ci-btn" onclick="setRole('ci')">CI Team</button>
+    </div>
+    <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀</button>
+    <div class="avatar">AG</div>
+  </div>
+</nav>
+
+<!-- ═══════════════ PAGE: DASHBOARD ═══════════════ -->
+<div id="page-dashboard" class="page active">
+<div class="container">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="gavel-icon-wrap">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.5 3.5L21.5 14.5L17.5 18.5L6.5 7.5Z"/>
+          <path d="M3 21L8 16"/>
+          <path d="M13.5 21.5H21.5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Compliance Dashboard</h1>
+        <div class="sub">Monitor and track compliance initiatives across all projects</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="nav('docs')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Lifecycle Docs
+      </button>
+      <button class="btn btn-primary" onclick="nav('create')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        New Initiative
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI bar -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
+    <div class="card" style="border-top:2px solid var(--accent);">
+      <div class="stat-label">Total Initiatives</div>
+      <div class="stat-value">3</div>
+    </div>
+    <div class="card" style="border-top:2px solid var(--amber);">
+      <div class="stat-label">Awaiting CI Review</div>
+      <div class="stat-value" style="color:var(--amber);">1</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:6px;">SAST Enforcement submitted</div>
+    </div>
+    <div class="card" style="border-top:2px solid #b88ee0;">
+      <div class="stat-label">In Test / Development</div>
+      <div class="stat-value" style="color:#b88ee0;">0</div>
+    </div>
+    <div class="card" style="border-top:2px solid var(--green);">
+      <div class="stat-label">Ready for Activation</div>
+      <div class="stat-value" style="color:var(--green);">1</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:6px;">Dep Version Lock ready</div>
+    </div>
+  </div>
+
+  <!-- Initiatives list -->
+  <div class="sec-head" style="margin-bottom:14px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+    All Initiatives
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Initiative</th><th>Lifecycle Status</th><th>Scope</th><th>Key Dates</th><th>Owner</th><th></th></tr></thead>
+      <tbody id="dashboard-table-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Favorites -->
+  <div style="font-size:13px;font-weight:700;margin:24px 0 10px;display:flex;align-items:center;gap:6px;letter-spacing:-0.01em;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--amber)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    My Favorite Projects
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Project</th><th>Tags</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:11px;">1</td>
+          <td><div class="iname">ios | digitalmobile</div><div class="idesc">Mobile application project</div></td>
+          <td><span class="tag">ios</span>&nbsp;<span class="tag">application</span></td>
+          <td><span class="badge badge-muted">No Active Initiatives</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ PAGE: INITIATIVES ═══════════════ -->
+<div id="page-initiatives" class="page">
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>Initiatives</h1>
+      <div class="sub">All compliance initiatives and their current lifecycle status</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="nav('create')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        New Initiative
+      </button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="filterTab('all',this)">All Initiatives</button>
+    <button class="tab" onclick="filterTab('mine',this)">My Initiatives</button>
+  </div>
+
+  <div class="pills" id="status-pills">
+    <button class="pill active" onclick="filterStatus('all',this)">All <span class="pcount">3</span></button>
+    <button class="pill" onclick="filterStatus('draft',this)">Draft <span class="pcount">1</span></button>
+    <button class="pill" onclick="filterStatus('submitted',this)">Submitted <span class="pcount">1</span></button>
+    <button class="pill" onclick="filterStatus('review',this)">In Review <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterStatus('development',this)">Development <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterStatus('test',this)">Test <span class="pcount">0</span></button>
+    <button class="pill" onclick="filterStatus('ready',this)">Ready <span class="pcount">1</span></button>
+    <button class="pill" onclick="filterStatus('rejected',this)">Rejected <span class="pcount">0</span></button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Initiative</th><th>Lifecycle</th><th>Projects</th><th>Key Dates</th><th>Status</th><th>Owner</th><th></th></tr></thead>
+      <tbody id="initiatives-table-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ PAGE: DETAIL ═══════════════ -->
+<div id="page-detail" class="page">
+<div class="container" id="detail-container">
+  <!-- dynamically rendered -->
+</div>
+</div>
+
+<!-- ═══════════════ PAGE: CREATE INITIATIVE ═══════════════ -->
+<div id="page-create" class="page">
+<div class="container">
+  <div class="page-header">
+    <div>
+      <h1>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-3px;margin-right:6px;"><path d="M12 5v14M5 12h14"/></svg>
+        New Compliance Initiative
+      </h1>
+      <div class="sub">Define a compliance requirement — it will be saved as a Draft for you to review before submission</div>
+    </div>
+    <button class="btn btn-secondary" onclick="nav('initiatives')">← Back</button>
+  </div>
+
+  <!-- Lifecycle preview -->
+  <div class="lifecycle-banner" style="margin-bottom:20px;">
+    <div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Initiative Lifecycle</div>
+      <div style="display:flex;align-items:center;gap:0;">
+        <span class="step-lg current">Draft</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Submitted</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Review</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Development</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Test</span><span class="sarr-lg">→</span>
+        <span class="step-lg">Ready for Activation</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+      <span class="badge badge-draft">Starts as: Draft</span>
+      <span style="font-size:11px;color:var(--dim);">Submit when ready for CI review</span>
+    </div>
+  </div>
+
+  <div class="form-layout">
+    <div>
+      <!-- Basic Info -->
+      <div class="fsec">
+        <div class="fsec-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          Basic Information
+          <span style="font-size:10px;color:var(--dim);font-weight:400;margin-left:auto;">⚠ Frozen once CI begins test phase</span>
+        </div>
+        <div class="fsec-body">
+          <div class="fg2" style="margin-bottom:14px;">
+            <div class="fg"><label>Short Title <span class="req">*</span></label><input class="input" placeholder="e.g., SAST, Xcode 26.3"><div class="fhint">Max 20 chars — column header</div></div>
+            <div class="fg"><label>Category <span class="req">*</span></label><select class="select"><option value="">Select…</option><option>Compliance</option><option>Security</option><option>Quality</option></select></div>
+          </div>
+          <div class="fg" style="margin-bottom:14px;"><label>Full Title <span class="req">*</span></label><input class="input" placeholder="e.g., Static Application Security Testing"></div>
+          <div class="fg" style="margin-bottom:14px;"><label>Description</label><textarea class="textarea" placeholder="Brief description of this compliance requirement"></textarea></div>
+          <div class="fg" style="margin-bottom:14px;"><label>Technical Requirements</label><textarea class="textarea" style="font-family:'IBM Plex Mono',monospace;font-size:12px;" placeholder="e.g., Update dlci/settings/config.json with XCODE_VERSION='26.3.0'"></textarea><div class="fhint"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Shown on project pages to guide developers</div></div>
+          <div class="fg2">
+            <div class="fg"><label>Documentation URL</label><input class="input" placeholder="https://…"></div>
+            <div class="fg"><label>Jira URL</label><input class="input" placeholder="https://jira.company.com/browse/…"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Enforcement Timeline -->
+      <div class="fsec">
+        <div class="fsec-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Tentative CI Enforcement Timeline
+          <span style="font-size:10px;color:var(--dim);font-weight:400;margin-left:auto;">Editable until Test phase</span>
+        </div>
+        <div class="fsec-body">
+          <div class="notice notice-info" style="margin-bottom:16px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            These are <strong>tentative</strong> dates. CI team may adjust during development phase.
+          </div>
+          <div class="fg2">
+            <div class="fg"><label><svg width="10" height="10" viewBox="0 0 24 24" fill="var(--amber)" style="vertical-align:-1px;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>Warn Date <span class="req">*</span></label><input class="input" type="date"><div class="fhint">CI starts issuing warnings</div></div>
+            <div class="fg"><label><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" style="vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>Block Date <span class="req">*</span></label><input class="input" type="date"><div class="fhint">CI starts blocking PRs</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scope -->
+      <div class="fsec">
+        <div class="fsec-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          Tentative Project Scope
+          <span style="font-size:10px;color:var(--dim);font-weight:400;margin-left:auto;">Editable until Test phase</span>
+        </div>
+        <div class="fsec-body">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Which projects does this initiative apply to?</div>
+          <label class="check-row"><input type="checkbox" id="scope-all" checked onchange="scopeChanged();toggleSub('seal-sub',false);toggleSub('lob-sub',false);toggleSub('plat-sub',false);toggleSub('repo-sub',false)"><div style="flex:1;"><div class="check-main">All Projects</div><div class="check-sub">Entire portfolio</div></div><span style="font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--muted);">284</span></label>
+          <label class="check-row"><input type="checkbox" id="scope-seal" onchange="scopeChanged();toggleSub('seal-sub',this.checked)"><div><div class="check-main">By SEAL ID</div><div class="check-sub">~15 projects each</div></div></label>
+          <div id="seal-sub" style="display:none;" class="scope-sub"><div class="fg"><label>SEAL IDs (comma-separated)</label><input class="input mono" placeholder="e.g., SEAL-001, SEAL-042"></div></div>
+          <label class="check-row"><input type="checkbox" id="scope-lob" onchange="scopeChanged();toggleSub('lob-sub',this.checked)"><div><div class="check-main">By Line of Business</div><div class="check-sub">CCB, CIB, ICB, AWM…</div></div></label>
+          <div id="lob-sub" style="display:none;" class="scope-sub">
+            <div style="display:flex;flex-wrap:wrap;gap:7px;">
+              <label class="scope-pill"><input type="checkbox" class="lob-check" data-count="52" onchange="scopeChanged()"><span>CCB</span><span class="pct">52</span></label>
+              <label class="scope-pill"><input type="checkbox" class="lob-check" data-count="43" onchange="scopeChanged()"><span>CIB</span><span class="pct">43</span></label>
+              <label class="scope-pill"><input type="checkbox" class="lob-check" data-count="38" onchange="scopeChanged()"><span>ICB</span><span class="pct">38</span></label>
+              <label class="scope-pill"><input type="checkbox" class="lob-check" data-count="29" onchange="scopeChanged()"><span>AWM</span><span class="pct">29</span></label>
+              <label class="scope-pill"><input type="checkbox" class="lob-check" data-count="67" onchange="scopeChanged()"><span>Other</span><span class="pct">67</span></label>
+            </div>
+          </div>
+          <label class="check-row"><input type="checkbox" id="scope-plat" onchange="scopeChanged();toggleSub('plat-sub',this.checked)"><div><div class="check-main">By Platform</div><div class="check-sub">iOS, Android, Web…</div></div></label>
+          <div id="plat-sub" style="display:none;" class="scope-sub">
+            <div style="display:flex;flex-wrap:wrap;gap:7px;">
+              <label class="scope-pill"><input type="checkbox" class="plat-check" data-count="97" onchange="scopeChanged()"><span>iOS</span><span class="pct">97</span></label>
+              <label class="scope-pill"><input type="checkbox" class="plat-check" data-count="85" onchange="scopeChanged()"><span>Android</span><span class="pct">85</span></label>
+              <label class="scope-pill"><input type="checkbox" class="plat-check" data-count="62" onchange="scopeChanged()"><span>Web</span><span class="pct">62</span></label>
+              <label class="scope-pill"><input type="checkbox" class="plat-check" data-count="40" onchange="scopeChanged()"><span>Other</span><span class="pct">40</span></label>
+            </div>
+          </div>
+          <label class="check-row" style="border-bottom:none;"><input type="checkbox" id="scope-repo" onchange="scopeChanged();toggleSub('repo-sub',this.checked)"><div><div class="check-main">By Bitbucket Repo</div><div class="check-sub">~3 projects each</div></div></label>
+          <div id="repo-sub" style="display:none;" class="scope-sub"><div class="fg"><label>Repo paths (comma-separated)</label><input class="input mono" placeholder="e.g., MOBILE/ios-app"></div></div>
+          <hr class="divider">
+          <div class="fg"><label>Branch Filter (Optional)</label><input class="input mono" placeholder="e.g., ^(main|master|release/.*)$"><div class="fhint"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>Regex supported</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn btn-primary" style="height:38px;padding:0 24px;font-size:14px;" onclick="nav('initiatives')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+          Save as Draft
+        </button>
+        <button class="btn btn-secondary" onclick="nav('initiatives')">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar-sticky">
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;">Affected Projects</div>
+        <div style="display:flex;justify-content:center;margin-bottom:14px;">
+          <div style="position:relative;width:130px;height:130px;">
+            <svg width="130" height="130" viewBox="0 0 130 130">
+              <circle cx="65" cy="65" r="52" fill="none" stroke="var(--border)" stroke-width="8"/>
+              <circle id="scope-progress" cx="65" cy="65" r="52" fill="none" stroke="var(--accent)" stroke-width="8" stroke-dasharray="326.7 326.7" stroke-linecap="round" transform="rotate(-90 65 65)" style="transition:stroke-dasharray .6s cubic-bezier(.34,1.56,.64,1);filter:drop-shadow(0 0 7px var(--accent));"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+              <div id="scope-count" style="font-size:32px;font-weight:700;letter-spacing:-0.05em;line-height:1;">284</div>
+              <div style="font-size:9px;color:var(--dim);letter-spacing:0.08em;font-weight:700;text-transform:uppercase;margin-top:3px;">Projects</div>
+              <div id="scope-pct" style="font-size:12px;font-weight:700;margin-top:2px;color:var(--accent-fg);">100%</div>
+            </div>
+          </div>
+        </div>
+        <div id="scope-breakdown" style="border-top:1px solid var(--border-s);padding-top:12px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;">Scope</div>
+          <div style="font-size:12px;color:var(--green);display:flex;align-items:center;gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>All 284 projects</div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">What happens after saving?</div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="font-size:12px;display:flex;gap:8px;"><span class="badge badge-draft" style="flex-shrink:0;height:18px;">Draft</span><span style="color:var(--muted);">Saved privately — only you can see it.</span></div>
+          <div style="font-size:12px;display:flex;gap:8px;"><span class="badge badge-submitted" style="flex-shrink:0;height:18px;">Submitted</span><span style="color:var(--muted);">When you're ready, submit for CI review.</span></div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px;">CI team will schedule a feasibility review and move it forward through the lifecycle.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ PAGE: EDIT ═══════════════ -->
+<div id="page-edit" class="page">
+<div class="container" id="edit-container">
+  <!-- dynamically rendered -->
+</div>
+</div>
+
+<!-- ═══════════════ PAGE: CI REVIEW ═══════════════ -->
+<div id="page-ci-review" class="page">
+<div class="container">
+  <div class="page-header">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <div style="width:32px;height:32px;background:rgba(150,90,210,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b88ee0" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <h1>CI Review Dashboard</h1>
+      </div>
+      <div class="sub">Manage initiative statuses — visible only to CI team members</div>
+    </div>
+  </div>
+
+  <!-- CI role notice -->
+  <div id="ci-role-notice" style="display:none;" class="notice" style="background:rgba(150,90,210,.1);border:1px solid rgba(150,90,210,.3);color:#b88ee0;margin-bottom:20px;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M12 12v4"/></svg>
+    Switch to <strong>CI Team</strong> role in the nav to enable status update actions.
+  </div>
+
+  <!-- Summary -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px;">
+    <div class="card"><div class="stat-label">Submitted</div><div style="font-size:28px;font-weight:700;color:#82b0e8;">1</div></div>
+    <div class="card"><div class="stat-label">In Review</div><div style="font-size:28px;font-weight:700;color:var(--amber);">0</div></div>
+    <div class="card"><div class="stat-label">Development</div><div style="font-size:28px;font-weight:700;color:#6baed8;">0</div></div>
+    <div class="card"><div class="stat-label">In Test</div><div style="font-size:28px;font-weight:700;color:#b88ee0;">0</div></div>
+    <div class="card"><div class="stat-label">Ready</div><div style="font-size:28px;font-weight:700;color:var(--green);">1</div></div>
+  </div>
+
+  <!-- Queue table -->
+  <div class="sec-head" style="margin-bottom:14px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Active Queue
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Initiative</th><th>Author</th><th>Submitted</th><th>Current Status</th><th style="min-width:220px;">CI Actions</th></tr></thead>
+      <tbody id="ci-review-table-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Recent activity -->
+  <div class="sec-head" style="margin-bottom:14px;margin-top:8px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Recent CI Activity
+  </div>
+  <div class="card">
+    <div class="act-timeline">
+      <div class="act-item">
+        <div class="act-dot-col"><div class="act-dot" style="background:var(--green);"></div></div>
+        <div class="act-content">
+          <div class="act-header"><span class="act-time-label">Jun 8, 2026 9:00 AM</span><span class="badge badge-ready" style="font-size:10px;">Ready for Activation</span><span class="act-user-label">Kim, James (CI)</span></div>
+          <div class="act-body">Dependency Version Lock — Backend checks deployed to production.</div>
+        </div>
+      </div>
+      <div class="act-item">
+        <div class="act-dot-col"><div class="act-dot" style="background:#b88ee0;"></div><div class="act-line"></div></div>
+        <div class="act-content">
+          <div class="act-header"><span class="act-time-label">Jun 5, 2026 2:00 PM</span><span class="badge badge-test" style="font-size:10px;">Test</span><span class="act-user-label">Kim, James (CI)</span></div>
+          <div class="act-body">Dependency Version Lock — CI check implemented, moved to test phase.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ PAGE: LIFECYCLE DOCS ═══════════════ -->
+<div id="page-docs" class="page">
+<div class="container">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="gavel-icon-wrap">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.5 3.5L21.5 14.5L17.5 18.5L6.5 7.5Z"/>
+          <path d="M3 21L8 16"/>
+          <path d="M13.5 21.5H21.5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Initiative Lifecycle Documentation</h1>
+        <div class="sub">How compliance initiatives move from idea to active enforcement</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="nav('create')">+ New Initiative</button>
+  </div>
+
+  <!-- Lifecycle flow diagram -->
+  <div class="card" style="margin-bottom:24px;overflow:hidden;">
+    <div class="sec-head">Lifecycle Flow Diagram</div>
+    <!-- Main flow -->
+    <div style="overflow-x:auto;padding-bottom:8px;">
+      <div style="min-width:860px;">
+        <!-- Row 1: main track -->
+        <div style="display:flex;align-items:flex-start;gap:0;margin-bottom:0;">
+          <!-- Draft -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="width:120px;border-radius:var(--r-lg);border:1.5px solid var(--accent);overflow:hidden;">
+              <div style="padding:10px 12px;background:var(--accent-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent-fg);">1 · Draft</div>
+              <div style="padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">User creates & saves. Editable. Not visible to CI.</div>
+            </div>
+            <div style="font-size:10px;color:var(--dim);text-align:center;">👤 Author</div>
+          </div>
+          <div class="docs-arrow-h" style="margin-top:32px;">→</div>
+          <!-- Submitted -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="width:120px;border-radius:var(--r-lg);border:1.5px solid #82b0e8;overflow:hidden;">
+              <div style="padding:10px 12px;background:rgba(80,130,220,.12);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#82b0e8;">2 · Submitted</div>
+              <div style="padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">Author submits. Awaiting CI team triage.</div>
+            </div>
+            <div style="font-size:10px;color:var(--dim);text-align:center;">👤 Author</div>
+          </div>
+          <div class="docs-arrow-h" style="margin-top:32px;">→</div>
+          <!-- Review -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;position:relative;" id="docs-review-node">
+            <div style="width:120px;border-radius:var(--r-lg);border:1.5px solid var(--amber);overflow:hidden;">
+              <div style="padding:10px 12px;background:var(--amber-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--amber);">3 · Review</div>
+              <div style="padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">CI evaluates feasibility. Meeting scheduled.</div>
+            </div>
+            <div style="font-size:10px;color:var(--dim);text-align:center;">🔧 CI Team</div>
+          </div>
+          <div class="docs-arrow-h" style="margin-top:32px;">→</div>
+          <!-- Development -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="width:120px;border-radius:var(--r-lg);border:1.5px solid #6baed8;overflow:hidden;">
+              <div style="padding:10px 12px;background:rgba(60,140,200,.12);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6baed8;">4 · Development</div>
+              <div style="padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">CI builds backend enforcement check.</div>
+            </div>
+            <div style="font-size:10px;color:var(--dim);text-align:center;">🔧 CI Team</div>
+          </div>
+          <div class="docs-arrow-h" style="margin-top:32px;">→</div>
+          <!-- Test -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="width:120px;border-radius:var(--r-lg);border:1.5px solid #b88ee0;overflow:hidden;">
+              <div style="padding:10px 12px;background:rgba(150,90,210,.12);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#b88ee0;">5 · Test</div>
+              <div style="padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">CI validates the check. Initiative is <strong style="color:var(--amber);">locked</strong>.</div>
+            </div>
+            <div style="font-size:10px;color:var(--dim);text-align:center;">🔧 CI Team</div>
+          </div>
+          <div class="docs-arrow-h" style="margin-top:32px;">→</div>
+          <!-- Ready -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;">
+            <div style="width:128px;border-radius:var(--r-lg);border:1.5px solid var(--green);overflow:hidden;">
+              <div style="padding:10px 12px;background:var(--green-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--green);">6 · Ready for Activation</div>
+              <div style="padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">Backend live in prod. Dates &amp; scope editable.</div>
+            </div>
+            <div style="font-size:10px;color:var(--dim);text-align:center;">👤 Author</div>
+          </div>
+        </div>
+
+        <!-- Rejected branch: row below Review -->
+        <div style="display:flex;align-items:flex-start;gap:0;margin-top:6px;padding-left:311px;">
+          <!-- align under Review (3 states + 2 arrows ≈ 311px) -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+            <div style="width:2px;height:20px;background:var(--red);"></div>
+            <div style="width:120px;border-radius:var(--r-lg);border:1.5px solid var(--red);overflow:hidden;">
+              <div style="padding:10px 12px;background:var(--red-dim);text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--red);">✕ Rejected</div>
+              <div style="padding:10px 12px;font-size:11px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border-s);">Not feasible. CI records reason. Read-only.</div>
+            </div>
+            <div style="font-size:10px;color:var(--dim);text-align:center;margin-top:6px;">🔧 CI Team</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- State reference -->
+  <div class="sec-head" style="margin-bottom:16px;">State Reference</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
+    <!-- Draft -->
+    <div class="docs-state-ref">
+      <div class="docs-state-ref-head"><span class="badge badge-draft">Draft</span><span style="font-size:12px;color:var(--muted);">Created by Author</span></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;">Initiative is saved privately. The author can refine all details before submitting. Not visible to the CI team or other users.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--green);">✓</strong> Full edit by author</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--green);">✓</strong> Delete initiative</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--accent-fg);">→</strong> Submit for CI review</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);color:var(--dim);">✗ Not visible to CI</div>
+      </div>
+    </div>
+    <!-- Submitted -->
+    <div class="docs-state-ref">
+      <div class="docs-state-ref-head"><span class="badge badge-submitted">Submitted</span><span style="font-size:12px;color:var(--muted);">Awaiting CI triage</span></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;">Author has submitted the initiative to the CI team for feasibility review. Author can still edit or retract while awaiting triage.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--green);">✓</strong> Full edit by author</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--green);">✓</strong> Retract to Draft</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--green);">✓</strong> CI team can see it</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--accent-fg);">→</strong> CI moves to Review</div>
+      </div>
+    </div>
+    <!-- Review -->
+    <div class="docs-state-ref">
+      <div class="docs-state-ref-head"><span class="badge badge-review">Review</span><span style="font-size:12px;color:var(--muted);">CI evaluating feasibility</span></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;">CI team reviews the initiative, schedules a meeting with stakeholders, and assesses the technical feasibility and work involved.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--green);">✓</strong> Full edit by author</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--accent-fg);">→</strong> CI → Development</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--red);">→</strong> CI → Rejected</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);color:var(--dim);">Meeting notes logged</div>
+      </div>
+    </div>
+    <!-- Development -->
+    <div class="docs-state-ref">
+      <div class="docs-state-ref-head"><span class="badge badge-development">Development</span><span style="font-size:12px;color:var(--muted);">CI building the check</span></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;">CI engineers implement the backend enforcement check. Author can still update details; CI may request clarifications on technical requirements.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--green);">✓</strong> Full edit by author</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--accent-fg);">→</strong> CI → Test</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);color:var(--dim);">CI owns progression</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);color:var(--dim);">Backend under build</div>
+      </div>
+    </div>
+    <!-- Test -->
+    <div class="docs-state-ref" style="border-color:rgba(150,90,210,.3);">
+      <div class="docs-state-ref-head"><span class="badge badge-test">Test</span><span style="font-size:12px;color:var(--muted);">CI validating the check</span></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;">CI validates the enforcement check in a staging environment. <strong style="color:var(--amber);">All edits are locked</strong> during this phase to ensure what's tested matches what gets deployed.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="padding:6px 10px;background:rgba(150,90,210,.1);border-radius:var(--r-sm);color:#b88ee0;"><strong>🔒</strong> Author edits locked</div>
+        <div style="padding:6px 10px;background:rgba(150,90,210,.1);border-radius:var(--r-sm);color:#b88ee0;"><strong>🔒</strong> Scope locked</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);"><strong style="color:var(--accent-fg);">→</strong> CI → Ready</div>
+        <div style="padding:6px 10px;background:var(--card-2);border-radius:var(--r-sm);color:var(--dim);">CI owns this phase</div>
+      </div>
+    </div>
+    <!-- Ready -->
+    <div class="docs-state-ref" style="border-color:rgba(123,163,94,.3);">
+      <div class="docs-state-ref-head"><span class="badge badge-ready">Ready for Activation</span><span style="font-size:12px;color:var(--muted);">Backend live in prod</span></div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;">The backend CI check is deployed to production. The author can adjust the <strong style="color:var(--text);">enforcement timeline</strong> and <strong style="color:var(--text);">project scope</strong> but the <strong style="color:var(--amber);">basic contract is frozen</strong>.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+        <div style="padding:6px 10px;background:var(--green-dim);border-radius:var(--r-sm);color:var(--green);"><strong>✓</strong> Edit enforcement dates</div>
+        <div style="padding:6px 10px;background:var(--green-dim);border-radius:var(--r-sm);color:var(--green);"><strong>✓</strong> Edit project scope</div>
+        <div style="padding:6px 10px;background:rgba(193,154,75,.12);border-radius:var(--r-sm);color:var(--amber);"><strong>🔒</strong> Title frozen</div>
+        <div style="padding:6px 10px;background:rgba(193,154,75,.12);border-radius:var(--r-sm);color:var(--amber);"><strong>🔒</strong> Tech reqs frozen</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permissions matrix -->
+  <div class="sec-head" style="margin-bottom:14px;">Permissions Matrix</div>
+  <div class="table-wrap" style="margin-bottom:24px;">
+    <table class="perm-table">
+      <thead><tr><th>Action</th><th>Draft</th><th>Submitted</th><th>Review</th><th>Development</th><th>Test</th><th>Ready</th><th>Rejected</th></tr></thead>
+      <tbody>
+        <tr><td style="font-weight:600;">Edit basic info (title, description, tech reqs)</td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-cross">✗</span></td><td><span class="perm-cross">✗</span></td><td><span class="perm-cross">✗</span></td></tr>
+        <tr><td style="font-weight:600;">Edit enforcement timeline (warn/block dates)</td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-cross">✗</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-cross">✗</span></td></tr>
+        <tr><td style="font-weight:600;">Edit project scope</td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-cross">✗</span></td><td><span class="perm-check">✓</span></td><td><span class="perm-cross">✗</span></td></tr>
+        <tr><td style="font-weight:600;">Submit for CI review</td><td><span class="perm-check">✓</span></td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td></tr>
+        <tr><td style="font-weight:600;">Retract (back to Draft)</td><td style="color:var(--dim);">—</td><td><span class="perm-check">✓</span></td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td></tr>
+        <tr style="background:rgba(150,90,210,.04);"><td style="font-weight:600;">CI: Advance status</td><td style="color:var(--dim);">—</td><td><span class="perm-check">✓</span> → Review</td><td><span class="perm-check">✓</span> → Dev/Reject</td><td><span class="perm-check">✓</span> → Test</td><td><span class="perm-check">✓</span> → Ready</td><td style="color:var(--dim);">—</td><td style="color:var(--dim);">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ ACCENT PICKER ═══════════════ -->
+<div class="accent-picker">
+  <div class="picker-label">Theme</div>
+  <div class="accent-row">
+    <div class="accent-swatch active" id="sw-indigo" style="background:#d97a4a;" onclick="setAccent('indigo','sw-indigo')"></div>
+    <div class="accent-swatch" id="sw-teal" style="background:#c19a4b;" onclick="setAccent('teal','sw-teal')"></div>
+    <div class="accent-swatch" id="sw-violet" style="background:#7ba35e;" onclick="setAccent('violet','sw-violet')"></div>
+    <div style="width:1px;height:16px;background:var(--border-s);margin:0 2px;"></div>
+    <button class="icon-btn" onclick="toggleTheme()" style="width:22px;height:22px;font-size:12px;">☀</button>
+  </div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────
+const INITIATIVES = [
+  {
+    id:1, title:'Xcode 26.3 Migration', shortTitle:'Xcode 26.3', category:'Compliance',
+    desc:'Migrate all iOS projects to Xcode 26.3 to ensure compatibility with latest Apple toolchain requirements.',
+    techReqs:"Update dlci/settings/config.json:\n  XCODE_VERSION='26.3.0'",
+    docsUrl:'', jiraUrl:'',
+    status:'draft', warnDate:'2026-06-12', blockDate:'2026-07-11',
+    scopeLabel:'All Projects', projects:284,
+    owner:'Gupta, Anant', ownerInitials:'AG',
+    activities:[
+      {time:'Jun 5, 2026 4:50 AM', type:'created', badge:'created', user:'Gupta, Anant', detail:'Initiative created as Draft.'}
+    ]
+  },
+  {
+    id:2, title:'SAST Policy Enforcement', shortTitle:'SAST', category:'Security',
+    desc:'Enforce Static Application Security Testing across all CI pipelines to detect vulnerabilities early in the development cycle.',
+    techReqs:"Add sast-check job to .dlci.yml:\n  jobs:\n    - name: sast-check\n      uses: security/sast@v2",
+    docsUrl:'https://docs.internal/sast', jiraUrl:'',
+    status:'submitted', warnDate:'2026-07-01', blockDate:'2026-08-01',
+    scopeLabel:'iOS, Android', projects:182,
+    owner:'Chen, Michael', ownerInitials:'MC',
+    activities:[
+      {time:'Jun 1, 2026 9:20 AM', type:'created', badge:'created', user:'Chen, Michael', detail:'Initiative created as Draft.'},
+      {time:'Jun 7, 2026 2:15 PM', type:'submitted', badge:'submitted', user:'Chen, Michael', detail:'Submitted for CI review. Enforcement timeline: Jul 1 (warn) / Aug 1 (block).'}
+    ]
+  },
+  {
+    id:3, title:'Dependency Version Lock', shortTitle:'Dep Lock', category:'Quality',
+    desc:'Pin all critical third-party dependencies to exact versions to prevent supply chain vulnerabilities and ensure build reproducibility.',
+    techReqs:"In Package.swift, pin all dependencies to exact versions:\n  .package(url: \"...\", exact: \"2.1.0\")",
+    docsUrl:'', jiraUrl:'https://jira.company.com/browse/DLCI-441',
+    status:'ready', warnDate:'2026-06-15', blockDate:'2026-06-30',
+    scopeLabel:'iOS', projects:97,
+    owner:'Patel, Riya', ownerInitials:'RP',
+    activities:[
+      {time:'May 15, 2026 11:00 AM', type:'created', badge:'created', user:'Patel, Riya', detail:'Initiative created as Draft.'},
+      {time:'May 20, 2026 3:30 PM', type:'submitted', badge:'submitted', user:'Patel, Riya', detail:'Submitted for CI review.'},
+      {time:'May 22, 2026 10:00 AM', type:'review', badge:'review', user:'Kim, James (CI)', detail:'CI team began review. Feasibility meeting scheduled for May 25.'},
+      {time:'May 28, 2026 4:00 PM', type:'development', badge:'development', user:'Kim, James (CI)', detail:'Feasibility confirmed. Work estimate: 3 sprints. Development started.'},
+      {time:'Jun 5, 2026 2:00 PM', type:'test', badge:'test', user:'Kim, James (CI)', detail:'Backend check implemented and deployed to staging. Moving to test phase. All edits are now locked.'},
+      {time:'Jun 8, 2026 9:00 AM', type:'ready', badge:'ready', user:'Kim, James (CI)', detail:'Backend checks deployed to production. Initiative is ready for activation. Enforcement timeline and scope can be updated.'}
+    ]
+  }
+];
+
+let currentRole = 'user';
+let selectedId = 1;
+
+// ── STATUS HELPERS ──────────────────────────────────
+const STATUS_CONFIG = {
+  draft:       { label:'Draft',                 badgeClass:'badge-draft',       dotColor:'var(--accent)',   order:1 },
+  submitted:   { label:'Submitted',             badgeClass:'badge-submitted',   dotColor:'#82b0e8',         order:2 },
+  review:      { label:'In Review',             badgeClass:'badge-review',      dotColor:'var(--amber)',    order:3 },
+  development: { label:'Development',           badgeClass:'badge-development', dotColor:'#6baed8',         order:4 },
+  test:        { label:'Test',                  badgeClass:'badge-test',        dotColor:'#b88ee0',         order:5 },
+  ready:       { label:'Ready for Activation',  badgeClass:'badge-ready',       dotColor:'var(--green)',    order:6 },
+  rejected:    { label:'Rejected',              badgeClass:'badge-rejected',    dotColor:'var(--red)',      order:99 }
+};
+
+function statusBadge(status) {
+  const c = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
+  return `<span class="badge ${c.badgeClass}">${c.label}</span>`;
+}
+
+function fmtDate(d) {
+  if(!d) return '—';
+  const [y,m,day] = d.split('-');
+  return new Date(y,m-1,day).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function canEdit(status)        { return ['draft','submitted','review','development'].includes(status); }
+function isFullyLocked(status)  { return status === 'test' || status === 'rejected'; }
+function isPartialLocked(status){ return status === 'ready'; }
+
+// ── NAVIGATION ──────────────────────────────────────
+const PAGES = ['dashboard','initiatives','detail','create','edit','ci-review','docs'];
+function nav(id, initiativeId) {
+  PAGES.forEach(p => {
+    const el = document.getElementById('page-'+p);
+    if(el) el.classList.toggle('active', p === id);
+  });
+  PAGES.forEach(p => {
+    const btn = document.getElementById('nl-'+p);
+    if(btn) btn.classList.toggle('active', p === id);
+  });
+  if(id === 'detail' && initiativeId) {
+    selectedId = initiativeId;
+    renderDetail(initiativeId);
+  }
+  if(id === 'edit' && initiativeId) {
+    selectedId = initiativeId;
+    renderEdit(initiativeId);
+  }
+  if(id === 'dashboard') renderDashboard();
+  if(id === 'initiatives') renderInitiativesTable();
+  if(id === 'ci-review') renderCIReview();
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
+// ── ROLE ─────────────────────────────────────────────
+function setRole(role) {
+  currentRole = role;
+  document.getElementById('role-user-btn').classList.toggle('active', role==='user');
+  document.getElementById('role-ci-btn').classList.toggle('active', role==='ci');
+  // Update CI notice visibility
+  const notice = document.getElementById('ci-role-notice');
+  if(notice) notice.style.display = role === 'ci' ? 'none' : 'flex';
+  // Re-render current page if detail is open
+  if(document.getElementById('page-detail').classList.contains('active')) {
+    renderDetail(selectedId);
+  }
+  if(document.getElementById('page-ci-review').classList.contains('active')) {
+    renderCIReview();
+  }
+}
+
+// ── LIFECYCLE STEPPER ───────────────────────────────
+const STEPS = ['draft','submitted','review','development','test','ready'];
+const STEP_LABELS = {draft:'Draft',submitted:'Submitted',review:'Review',development:'Development',test:'Test',ready:'Ready'};
+
+function renderLifecycleStepper(currentStatus) {
+  const isRejected = currentStatus === 'rejected';
+  const curIdx = STEPS.indexOf(currentStatus);
+
+  let html = '<div class="lc-stepper">';
+  STEPS.forEach((step, i) => {
+    const isDone = !isRejected && i < curIdx;
+    const isCurrent = !isRejected && i === curIdx;
+    let dotClass = isDone ? 'done' : (isCurrent ? 'current' : '');
+    let labelClass = isDone ? 'done' : (isCurrent ? 'current' : '');
+    const dotContent = isDone ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : (i+1);
+
+    html += `<div class="lc-step">
+      <div class="lc-step-dot ${dotClass}">${dotContent}</div>
+      <div class="lc-step-label ${labelClass}">${STEP_LABELS[step]}</div>
+    </div>`;
+
+    if(i < STEPS.length - 1) {
+      html += `<div class="lc-conn ${isDone ? 'done' : (isCurrent ? 'partial' : '')}"></div>`;
+    }
+
+    // Insert rejected branch below "review" (index 2)
+    if(step === 'review') {
+      html += `<div style="display:flex;flex-direction:column;align-items:center;margin-top:0;flex-shrink:0;width:0;overflow:visible;">
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;margin-left:-60px;margin-top:2px;">
+          <div style="width:2px;height:16px;background:${isRejected?'var(--red)':'var(--border-s)'};"></div>
+          <div class="lc-step">
+            <div class="lc-step-dot ${isRejected?'rejected-current':''}">✕</div>
+            <div class="lc-step-label ${isRejected?'rejected-current':''}">Rejected</div>
+          </div>
+        </div>
+      </div>`;
+    }
+  });
+  html += '</div>';
+  return html;
+}
+
+// ── RENDER DETAIL ────────────────────────────────────
+function renderDetail(id) {
+  const d = INITIATIVES.find(x => x.id === id);
+  if(!d) return;
+  const cfg = STATUS_CONFIG[d.status];
+  const canEditNow = canEdit(d.status) && currentRole === 'user';
+  const locked = isFullyLocked(d.status);
+  const partial = isPartialLocked(d.status);
+  const showCIPanel = currentRole === 'ci' && ['submitted','review','development','test'].includes(d.status);
+  const showSubmitBanner = d.status === 'draft' && currentRole === 'user';
+  const showRetractBanner = d.status === 'submitted' && currentRole === 'user';
+
+  // Activity log
+  let actHtml = '<div class="act-timeline">';
+  const acts = [...d.activities].reverse();
+  acts.forEach((a, i) => {
+    const cfg2 = STATUS_CONFIG[a.type] || STATUS_CONFIG.draft;
+    const dotColor = a.type==='created' ? 'var(--accent)' : cfg2.dotColor;
+    actHtml += `<div class="act-item">
+      <div class="act-dot-col">
+        <div class="act-dot" style="background:${dotColor};"></div>
+        ${i < acts.length-1 ? '<div class="act-line"></div>' : ''}
+      </div>
+      <div class="act-content">
+        <div class="act-header">
+          <span class="act-time-label">${a.time}</span>
+          ${statusBadge(a.badge)}
+          <span class="act-user-label">${a.user}</span>
+        </div>
+        <div class="act-body">${a.detail}</div>
+      </div>
+    </div>`;
+  });
+  actHtml += '</div>';
+
+  let ciNextOptions = '';
+  if(d.status==='submitted')   ciNextOptions = '<option value="">Move to…</option><option value="review">→ Review</option><option value="rejected">→ Rejected</option>';
+  else if(d.status==='review') ciNextOptions = '<option value="">Move to…</option><option value="development">→ Development</option><option value="rejected">→ Rejected</option>';
+  else if(d.status==='development') ciNextOptions = '<option value="">Move to…</option><option value="test">→ Test</option>';
+  else if(d.status==='test')   ciNextOptions = '<option value="">Move to…</option><option value="ready">→ Ready for Activation</option>';
+
+  document.getElementById('detail-container').innerHTML = `
+    <div style="padding:28px 0 22px;">
+      <!-- Breadcrumb -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim);">
+          <button class="btn btn-ghost btn-sm" onclick="nav('initiatives')" style="padding:0;height:auto;font-size:11px;color:var(--muted);">← Initiatives</button>
+          <span>/</span><span>${d.title}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${canEditNow ? `<button class="btn btn-secondary" onclick="nav('edit',${d.id})">Edit</button>` : ''}
+          ${partial ? `<button class="btn btn-secondary" onclick="nav('edit',${d.id})">Edit Timeline &amp; Scope</button>` : ''}
+          ${d.status === 'draft' ? `<button class="btn btn-danger">Delete</button>` : ''}
+        </div>
+      </div>
+
+      <!-- Title -->
+      <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.03em;margin-bottom:8px;">${d.title}</h1>
+      <div style="display:flex;align-items:center;gap:8px;">${statusBadge(d.status)}<span class="tag">${d.category}</span><span style="font-size:12px;color:var(--dim);">Owned by ${d.owner}</span></div>
+    </div>
+
+    <!-- Lifecycle stepper -->
+    <div class="card" style="margin-bottom:20px;overflow:visible;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;">Lifecycle Progress</div>
+      ${renderLifecycleStepper(d.status)}
+    </div>
+
+    <!-- Submit banner -->
+    ${showSubmitBanner ? `<div class="submit-banner">
+      <div>
+        <div class="submit-banner-text">Ready to submit for CI review?</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Once submitted, the CI team will schedule a feasibility review. You can still edit until they begin the review.</div>
+      </div>
+      <button class="btn btn-primary" style="white-space:nowrap;" onclick="submitInitiative(${d.id})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9Z"/></svg>
+        Submit for CI Review
+      </button>
+    </div>` : ''}
+
+    <!-- Retract banner -->
+    ${showRetractBanner ? `<div style="background:rgba(80,130,220,.1);border:1px solid rgba(80,130,220,.25);border-radius:var(--r-lg);padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+      <div><div style="font-size:13px;font-weight:600;color:#82b0e8;">Awaiting CI review</div><div style="font-size:12px;color:var(--muted);margin-top:3px;">You'll be notified when CI begins their review. You can retract and edit if needed.</div></div>
+      <button class="btn btn-secondary btn-sm" onclick="retractInitiative(${d.id})">Retract to Draft</button>
+    </div>` : ''}
+
+    <!-- CI Action panel -->
+    ${showCIPanel ? `<div class="ci-action-panel">
+      <div class="ci-panel-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        CI Team Actions
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="fg"><label>Advance Status</label>
+          <select class="select" id="ci-new-status" style="border-color:rgba(150,90,210,.4);">${ciNextOptions}</select>
+        </div>
+        <div class="fg"><label>Comment <span class="req">*</span></label>
+          <input class="input" id="ci-comment" placeholder="Reason for this transition…">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" style="background:#8a5cc8;" onclick="advanceStatus(${d.id})">Update Status</button>
+      </div>
+    </div>` : ''}
+
+    <!-- Locked notices -->
+    ${locked ? `<div class="locked-banner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>This initiative is in <strong>${cfg.label}</strong> phase — all edits are locked until CI completes testing.</div>` : ''}
+    ${partial && currentRole==='user' ? `<div class="locked-banner"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Basic contract is frozen. You can still update the <strong>enforcement timeline</strong> and <strong>project scope</strong>.</div>` : ''}
+
+    <!-- Info cards -->
+    <div class="info-cards" style="margin-bottom:20px;">
+      <div class="info-card"><div class="info-card-label">Current Status</div>${statusBadge(d.status)}<div style="font-size:11px;color:var(--muted);margin-top:8px;">${getStatusNote(d.status)}</div></div>
+      <div class="info-card"><div class="info-card-label">Category &amp; Scope</div><span class="tag">${d.category}</span><div style="font-size:13px;font-weight:600;margin-top:8px;">${d.scopeLabel}</div><div style="font-size:11px;color:var(--muted);">${d.projects} projects</div></div>
+      <div class="info-card"><div class="info-card-label">Warn Date</div><div style="font-size:17px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--amber);">${fmtDate(d.warnDate)}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">CI starts warning</div></div>
+      <div class="info-card"><div class="info-card-label">Block Date</div><div style="font-size:17px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--red);">${fmtDate(d.blockDate)}</div><div style="font-size:11px;color:var(--dim);margin-top:6px;">CI starts blocking PRs</div></div>
+    </div>
+
+    <!-- Description + Tech Reqs -->
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card"><div class="sec-head">Description</div><div style="font-size:13px;color:var(--muted);line-height:1.7;">${d.desc}</div>${d.docsUrl?`<div style="margin-top:12px;"><a href="${d.docsUrl}" style="font-size:12px;color:var(--accent-fg);">📄 Documentation →</a></div>`:''}${d.jiraUrl?`<div style="margin-top:6px;"><a href="${d.jiraUrl}" style="font-size:12px;color:var(--accent-fg);">🔗 Jira ticket →</a></div>`:''}</div>
+      <div class="card"><div class="sec-head">Technical Requirements</div><pre style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);line-height:1.6;white-space:pre-wrap;margin:0;">${d.techReqs}</pre></div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="sec-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Activity Log
+        <span style="font-size:11px;color:var(--dim);font-weight:400;margin-left:auto;">${d.activities.length} events</span>
+      </div>
+      ${actHtml}
+    </div>
+  `;
+}
+
+function getStatusNote(status) {
+  return {
+    draft:'Saved privately — submit when ready',
+    submitted:'Awaiting CI team triage',
+    review:'CI team is evaluating feasibility',
+    development:'CI is building the backend check',
+    test:'Validation in progress — all edits locked',
+    ready:'Backend live — enforcement &amp; scope editable',
+    rejected:'Not feasible — see activity log for details'
+  }[status] || '';
+}
+
+// ── RENDER EDIT ──────────────────────────────────────
+function renderEdit(id) {
+  const d = INITIATIVES.find(x => x.id === id);
+  if(!d) return;
+  const frozen = isFullyLocked(d.status);
+  const partial = isPartialLocked(d.status);
+  const basicLocked = frozen || partial;
+
+  const lockAttr = basicLocked ? 'class="field-locked"' : '';
+  const allLocked = frozen;
+
+  let html = `
+    <div class="page-header">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="nav('detail',${d.id})" style="padding:0;height:auto;font-size:11px;">← Detail</button>
+          <span style="color:var(--dim);">/</span>
+          <span>Edit: ${d.title}</span>
+        </div>
+        <h1><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:6px;"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit Initiative</h1>
+        <div class="sub">${d.title} — ${statusBadge(d.status)}</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="nav('detail',${d.id})">Cancel</button>
+      </div>
+    </div>`;
+
+  if(allLocked) {
+    html += `<div class="locked-banner" style="margin-bottom:24px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <span>This initiative is in <strong>${STATUS_CONFIG[d.status].label}</strong> — all edits are locked.</span>
+      <button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})" style="margin-left:auto;">Back to Detail</button>
+    </div>`;
+  } else if(partial) {
+    html += `<div class="locked-banner" style="margin-bottom:16px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <span>Basic contract is <strong>frozen</strong> (backed by CI in production). You can update <strong>enforcement timeline</strong> and <strong>project scope</strong>.</span>
+    </div>`;
+  }
+
+  html += `<div class="form-layout">
+    <div>
+      <!-- Basic Info -->
+      <div class="fsec">
+        <div class="fsec-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          Basic Information
+          ${basicLocked ? '<span class="lock-tag">FROZEN</span>' : ''}
+        </div>
+        <div class="fsec-body">
+          <div class="fg2" style="margin-bottom:14px;">
+            <div class="fg ${basicLocked?'field-locked':''}"><label>Short Title</label><input class="input" value="${d.shortTitle}" ${basicLocked?'readonly':''}></div>
+            <div class="fg ${basicLocked?'field-locked':''}"><label>Category</label><select class="select" ${basicLocked?'disabled':''}><option ${d.category==='Compliance'?'selected':''}>Compliance</option><option ${d.category==='Security'?'selected':''}>Security</option><option ${d.category==='Quality'?'selected':''}>Quality</option></select></div>
+          </div>
+          <div class="fg ${basicLocked?'field-locked':''}" style="margin-bottom:14px;"><label>Full Title</label><input class="input" value="${d.title}" ${basicLocked?'readonly':''}></div>
+          <div class="fg ${basicLocked?'field-locked':''}" style="margin-bottom:14px;"><label>Description</label><textarea class="textarea" ${basicLocked?'readonly':''}>${d.desc}</textarea></div>
+          <div class="fg ${basicLocked?'field-locked':''}" style="margin-bottom:14px;"><label>Technical Requirements</label><textarea class="textarea" style="font-family:'IBM Plex Mono',monospace;font-size:12px;" ${basicLocked?'readonly':''}>${d.techReqs}</textarea></div>
+          <div class="fg2">
+            <div class="fg ${basicLocked?'field-locked':''}"><label>Documentation URL</label><input class="input" value="${d.docsUrl}" placeholder="https://…" ${basicLocked?'readonly':''}></div>
+            <div class="fg ${basicLocked?'field-locked':''}"><label>Jira URL</label><input class="input" value="${d.jiraUrl}" placeholder="https://jira.company.com/…" ${basicLocked?'readonly':''}></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Enforcement Timeline -->
+      <div class="fsec" ${allLocked?'style="opacity:.6;pointer-events:none;"':''}>
+        <div class="fsec-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          CI Enforcement Timeline
+          ${allLocked ? '<span class="lock-tag">FROZEN</span>' : ''}
+        </div>
+        <div class="fsec-body">
+          <div class="fg2">
+            <div class="fg"><label>Warn Date</label><input class="input" type="date" value="${d.warnDate}" ${allLocked?'readonly':''}><div class="fhint">CI starts issuing warnings</div></div>
+            <div class="fg"><label>Block Date</label><input class="input" type="date" value="${d.blockDate}" ${allLocked?'readonly':''}><div class="fhint">CI starts blocking PRs</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scope -->
+      <div class="fsec" ${allLocked?'style="opacity:.6;pointer-events:none;"':''}>
+        <div class="fsec-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          Project Scope
+          ${allLocked ? '<span class="lock-tag">FROZEN</span>' : ''}
+        </div>
+        <div class="fsec-body">
+          <label class="check-row"><input type="checkbox" checked><div><div class="check-main">All Projects</div><div class="check-sub">Entire portfolio</div></div><span style="font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--muted);">284</span></label>
+          <label class="check-row"><input type="checkbox"><div><div class="check-main">By SEAL ID</div></div></label>
+          <label class="check-row"><input type="checkbox"><div><div class="check-main">By Line of Business</div></div></label>
+          <label class="check-row"><input type="checkbox"><div><div class="check-main">By Platform</div></div></label>
+          <label class="check-row" style="border-bottom:none;"><input type="checkbox"><div><div class="check-main">By Bitbucket Repo</div></div></label>
+        </div>
+      </div>
+
+      ${!allLocked ? `<div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn btn-primary" style="height:38px;padding:0 24px;" onclick="nav('detail',${d.id})">Save Changes</button>
+        <button class="btn btn-secondary" onclick="nav('detail',${d.id})">Cancel</button>
+      </div>` : ''}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar-sticky">
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Status</div>
+        ${statusBadge(d.status)}
+        <div style="font-size:12px;color:var(--muted);margin-top:8px;">${getStatusNote(d.status)}</div>
+      </div>
+      <div class="card">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Edit Permissions</div>
+        <div style="display:flex;flex-direction:column;gap:7px;font-size:12px;">
+          <div style="display:flex;align-items:center;gap:6px;">${basicLocked?'<span style="color:var(--amber);">🔒</span>':'<span style="color:var(--green);">✓</span>'} Basic info</div>
+          <div style="display:flex;align-items:center;gap:6px;">${allLocked?'<span style="color:var(--amber);">🔒</span>':'<span style="color:var(--green);">✓</span>'} Enforcement timeline</div>
+          <div style="display:flex;align-items:center;gap:6px;">${allLocked?'<span style="color:var(--amber);">🔒</span>':'<span style="color:var(--green);">✓</span>'} Project scope</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('edit-container').innerHTML = html;
+}
+
+// ── RENDER DASHBOARD TABLE ──────────────────────────
+function renderDashboard() {
+  const tbody = document.getElementById('dashboard-table-body');
+  if(!tbody) return;
+  tbody.innerHTML = INITIATIVES.map(d => `
+    <tr>
+      <td style="min-width:180px;"><div class="iname">${d.title}</div><div class="idesc">${d.category}</div></td>
+      <td>${statusBadge(d.status)}</td>
+      <td><div style="font-size:14px;font-weight:700;">${d.projects}</div><div style="font-size:11px;color:var(--muted);">${d.scopeLabel}</div></td>
+      <td style="white-space:nowrap;">
+        <div style="font-size:12px;color:var(--amber);font-family:'IBM Plex Mono',monospace;">${fmtDate(d.warnDate)}</div>
+        <div style="font-size:12px;color:var(--red);font-family:'IBM Plex Mono',monospace;">${fmtDate(d.blockDate)}</div>
+      </td>
+      <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar" style="width:22px;height:22px;font-size:9px;">${d.ownerInitials}</div><span style="font-size:12px;color:var(--muted);">${d.owner}</span></div></td>
+      <td><button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})">View</button></td>
+    </tr>
+  `).join('');
+}
+
+// ── RENDER INITIATIVES TABLE ────────────────────────
+let activeStatusFilter = 'all';
+let activeTab = 'all';
+
+function renderInitiativesTable() {
+  const tbody = document.getElementById('initiatives-table-body');
+  if(!tbody) return;
+  let items = [...INITIATIVES];
+  if(activeTab === 'mine') items = items.filter(d => d.owner === 'Gupta, Anant');
+  if(activeStatusFilter !== 'all') items = items.filter(d => d.status === activeStatusFilter);
+
+  tbody.innerHTML = items.length === 0
+    ? `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--dim);">No initiatives match this filter.</td></tr>`
+    : items.map(d => {
+    const curIdx = STEPS.indexOf(d.status);
+    const stepHtml = STEPS.map((s,i) => {
+      const done = i < curIdx && d.status !== 'rejected';
+      const cur = s === d.status;
+      const cls = done ? 'done' : (cur ? 'current' : '');
+      return `<span class="step ${cls}">${STEP_LABELS[s]}</span>${i<STEPS.length-1?'<span class="sarr">→</span>':''}`;
+    }).join('');
+    return `<tr>
+      <td style="min-width:180px;"><div class="iname">${d.title}</div><div class="idesc">${d.category}</div><div style="margin-top:4px;"><span class="tag">${d.scopeLabel}</span></div></td>
+      <td style="min-width:240px;"><div class="stepper" style="flex-wrap:wrap;gap:3px;">${stepHtml}</div></td>
+      <td><div style="font-size:16px;font-weight:700;">${d.projects}</div><div style="font-size:11px;color:var(--muted);">projects</div></td>
+      <td style="white-space:nowrap;min-width:160px;">
+        <div style="font-size:12px;display:flex;align-items:center;gap:4px;margin-bottom:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="var(--amber)"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><span style="font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmtDate(d.warnDate)}</span></div>
+        <div style="font-size:12px;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg><span style="font-family:'IBM Plex Mono',monospace;font-weight:600;">${fmtDate(d.blockDate)}</span></div>
+      </td>
+      <td>${statusBadge(d.status)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar" style="width:22px;height:22px;font-size:9px;">${d.ownerInitials}</div><span style="font-size:12px;color:var(--muted);">${d.owner.split(',')[0]}</span></div></td>
+      <td><button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTab(tab, el) {
+  activeTab = tab;
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderInitiativesTable();
+}
+
+function filterStatus(status, el) {
+  activeStatusFilter = status;
+  document.querySelectorAll('#status-pills .pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderInitiativesTable();
+}
+
+// ── RENDER CI REVIEW ────────────────────────────────
+function renderCIReview() {
+  const tbody = document.getElementById('ci-review-table-body');
+  if(!tbody) return;
+  const actionable = INITIATIVES.filter(d => ['submitted','review','development','test'].includes(d.status));
+  const isCI = currentRole === 'ci';
+  const notice = document.getElementById('ci-role-notice');
+  if(notice) notice.style.display = isCI ? 'none' : 'flex';
+
+  tbody.innerHTML = actionable.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--dim);">No initiatives awaiting CI action.</td></tr>`
+    : actionable.map(d => {
+    const nextOpts = {
+      submitted:'<option value="">Move to…</option><option value="review">→ In Review</option><option value="rejected">→ Rejected</option>',
+      review:'<option value="">Move to…</option><option value="development">→ Development</option><option value="rejected">→ Rejected</option>',
+      development:'<option value="">Move to…</option><option value="test">→ Test</option>',
+      test:'<option value="">Move to…</option><option value="ready">→ Ready for Activation</option>',
+    }[d.status] || '';
+    const submittedTime = d.activities.find(a => a.type==='submitted')?.time || '—';
+    return `<tr>
+      <td><div class="iname">${d.title}</div><div class="idesc">${d.category} · ${d.scopeLabel}</div></td>
+      <td><div class="avatar" style="display:inline-flex;width:24px;height:24px;font-size:10px;margin-right:6px;">${d.ownerInitials}</div><span style="font-size:12px;">${d.owner}</span></td>
+      <td><span style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--muted);">${submittedTime}</span></td>
+      <td>${statusBadge(d.status)}</td>
+      <td>
+        <div class="ci-row-actions">
+          ${isCI ? `
+            <select class="ci-status-btn" id="ci-sel-${d.id}" style="min-width:160px;">${nextOpts}</select>
+            <button class="btn btn-primary btn-sm" onclick="ciAdvance(${d.id})" style="background:#8a5cc8;">Update</button>
+          ` : `<span style="font-size:11px;color:var(--dim);">Switch to CI Team role to act</span>`}
+          <button class="btn btn-secondary btn-sm" onclick="nav('detail',${d.id})">View</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ACTIONS ──────────────────────────────────────────
+function submitInitiative(id) {
+  const d = INITIATIVES.find(x => x.id === id);
+  if(!d) return;
+  d.status = 'submitted';
+  d.activities.push({ time: 'Jun 9, 2026 ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), type:'submitted', badge:'submitted', user:'Gupta, Anant', detail:'Submitted for CI review.' });
+  renderDetail(id);
+}
+
+function retractInitiative(id) {
+  const d = INITIATIVES.find(x => x.id === id);
+  if(!d) return;
+  d.status = 'draft';
+  d.activities.push({ time: 'Jun 9, 2026 ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), type:'draft', badge:'draft', user:'Gupta, Anant', detail:'Retracted to Draft.' });
+  renderDetail(id);
+}
+
+function advanceStatus(id) {
+  const d = INITIATIVES.find(x => x.id === id);
+  const sel = document.getElementById('ci-new-status');
+  const comment = document.getElementById('ci-comment');
+  if(!d || !sel || !sel.value) return;
+  const newStatus = sel.value;
+  d.status = newStatus;
+  d.activities.push({ time: 'Jun 9, 2026 ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), type:newStatus, badge:newStatus, user:'Kim, James (CI)', detail: comment?.value || `CI team moved initiative to ${STATUS_CONFIG[newStatus].label}.` });
+  renderDetail(id);
+}
+
+function ciAdvance(id) {
+  const d = INITIATIVES.find(x => x.id === id);
+  const sel = document.getElementById('ci-sel-'+id);
+  if(!d || !sel || !sel.value) { alert('Please select a new status.'); return; }
+  const newStatus = sel.value;
+  d.status = newStatus;
+  d.activities.push({ time: 'Jun 9, 2026 ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), type:newStatus, badge:newStatus, user:'Kim, James (CI)', detail:`CI team advanced status to ${STATUS_CONFIG[newStatus].label}.` });
+  renderCIReview();
+}
+
+// ── CREATE FORM HELPERS ──────────────────────────────
+function scopeChanged() {
+  const allChecked = document.getElementById('scope-all')?.checked;
+  const cnt = allChecked ? 284 : 0;
+  const pct = allChecked ? 100 : 0;
+  const prog = document.getElementById('scope-progress');
+  if(prog) { const circ = 326.7; prog.setAttribute('stroke-dasharray', `${circ*pct/100} ${circ}`); }
+  const sc = document.getElementById('scope-count'); if(sc) sc.textContent = cnt;
+  const sp = document.getElementById('scope-pct'); if(sp) sp.textContent = pct+'%';
+}
+function toggleSub(id, show) { const el = document.getElementById(id); if(el) el.style.display = show ? 'block' : 'none'; }
+
+// ── THEME & ACCENT ───────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const body = document.body;
+  const isDark = body.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  body.setAttribute('data-theme', next);
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('ci-theme', next);
+  document.getElementById('theme-btn').textContent = next === 'dark' ? '☀' : '☾';
+}
+function setAccent(accent, swId) {
+  document.body.setAttribute('data-accent', accent);
+  document.documentElement.setAttribute('data-accent', accent);
+  document.querySelectorAll('.accent-swatch').forEach(s => s.classList.remove('active'));
+  document.getElementById(swId)?.classList.add('active');
+  localStorage.setItem('ci-accent', accent);
+}
+
+// ── INIT ─────────────────────────────────────────────
+(function() {
+  const theme = localStorage.getItem('ci-theme') || 'dark';
+  const accent = localStorage.getItem('ci-accent') || 'indigo';
+  document.body.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute('data-theme', theme);
+  document.body.setAttribute('data-accent', accent);
+  document.documentElement.setAttribute('data-accent', accent);
+  document.getElementById('theme-btn').textContent = theme === 'dark' ? '☀' : '☾';
+  const swMap = {indigo:'sw-indigo', teal:'sw-teal', violet:'sw-violet'};
+  if(swMap[accent]) { document.querySelectorAll('.accent-swatch').forEach(s => s.classList.remove('active')); document.getElementById(swMap[accent])?.classList.add('active'); }
+  nav('dashboard');
+})();
+</script>
+</body>
+</html>
